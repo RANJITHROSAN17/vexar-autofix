@@ -54,3 +54,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Makes `pytest` work from a fresh clone without an install, so a stray global pytest or a
+# forgotten `pip install -e .` cannot masquerade as an import error. CI still installs the
+# package first, so packaging breakage is still caught there.
+pythonpath = ["src"]
