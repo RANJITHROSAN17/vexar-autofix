@@ -72,6 +72,17 @@ def _print_report(report: dict[str, Any], apply: bool, target: Path) -> None:
             for note in report["review"]:
                 print(f"REVIEW      {note}")
         if apply:
+            if target.resolve().parent.name == "examples":
+                # The bundled fixtures are what the demo and the eval read. Rewriting one
+                # leaves a half-fixed file that the next run inherits, and the failure looks
+                # like a code bug rather than a dirty working tree.
+                print(
+                    "\nWARNING     this is a bundled demo fixture. The next scan will see the\n"
+                    "            patched file, not the original, and the eval's ground truth\n"
+                    "            will no longer match. Undo with:\n"
+                    "              git restore " + str(target),
+                    file=sys.stderr,
+                )
             target.write_text(str(report["patch"]), encoding="utf-8")
             print(f"\napplied to {target}")
         else:
