@@ -29,6 +29,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Validate the workflows
+        # GitHub reports an invalid workflow as a failed run with no jobs, which reads like
+        # a bot malfunction rather than a YAML typo. Fail here instead, by file and field.
+        run: python .github/scripts/validate_workflows.py
+
       - name: Lint
         run: ruff check .
 

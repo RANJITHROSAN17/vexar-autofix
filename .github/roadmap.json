@@ -1,0 +1,145 @@
+{
+  "_comment": "The machine-readable face of ROADMAP.md. Every item here is verified in that document as NOT built (G1 is the exception: it shipped, and is kept so the bot closes its issue instead of reopening it). Change a status here and the curator bot opens or closes the matching issue; nothing else in this repo opens roadmap issues by hand.",
+  "max_open_roadmap_issues": 4,
+  "min_open_good_first_issues": 1,
+  "verification": [
+    "python -m pip install -e \".[dev]\"",
+    "ruff check .",
+    "mypy src --strict",
+    "pytest",
+    "python eval/run_eval.py --provider mock"
+  ],
+  "labels": [
+    {"name": "roadmap", "color": "0e8a16", "description": "Tracked in ROADMAP.md"},
+    {"name": "help wanted", "color": "008672", "description": "Open for contribution"},
+    {"name": "good first issue", "color": "7057ff", "description": "Small, well-scoped, no prior context needed"},
+    {"name": "difficulty/easy", "color": "c5def5", "description": "Under a day for someone who knows the file"},
+    {"name": "difficulty/medium", "color": "f9d0c4", "description": "A day or two, some design judgement"},
+    {"name": "difficulty/hard", "color": "d93f0b", "description": "Multi-day, touches the verification core"},
+    {"name": "area/verifier", "color": "1d76db", "description": "The patch audit: SMELLS, REMEDY_MARKERS, audit_patch"},
+    {"name": "area/agent", "color": "5319e7", "description": "The loop: buckets, retries, gates"},
+    {"name": "area/cli", "color": "0052cc", "description": "vexar-autofix command line surface"},
+    {"name": "area/ci", "color": "bfd4f2", "description": "Workflows, the Action, automation"},
+    {"name": "area/release", "color": "b60205", "description": "Packaging, naming, publishing"},
+    {"name": "type/feature", "color": "a2eeef", "description": "New capability"},
+    {"name": "type/security", "color": "e11d21", "description": "Closes a way the tool could be wrong"},
+    {"name": "type/proof", "color": "fbca04", "description": "Evidence the product's claim is true"},
+    {"name": "type/docs", "color": "0075ca", "description": "Documentation"},
+    {"name": "priority/p0", "color": "b60205", "description": "Blocks release or breaks the core promise"}
+  ],
+  "items": [
+    {
+      "id": "G1",
+      "status": "shipped",
+      "shipped_in": "main (unreleased)",
+      "title": "feat(verifier): audit MCP010 patches so an absurd timeout is not accepted",
+      "summary": "MCP010 was in AUTOFIXABLE with no entry in SMELLS or REMEDY_MARKERS, so the audit accepted any patch that cleared the rule - including `timeout=float('inf')`.",
+      "motivation": "The product's whole claim is that the scanner can be fooled and the verifier cannot. MCP010 was the one rule where the verifier could be fooled, and it was fixable. Found by auditing the audit, which is why the fix ships with a structural guard rather than only a patch.",
+      "files": ["src/vexar_autofix/verifier.py", "tests/test_verifier.py"],
+      "acceptance_criteria": [
+        "timeout=None, float('inf'), 10**9, 1e9 and 86400 are rejected",
+        "timeout=10, 2.5 and TIMEOUT_SECONDS are accepted",
+        "test_every_fixable_rule_is_covered_by_the_audit fails if a rule joins AUTOFIXABLE unaudited"
+      ],
+      "labels": ["roadmap", "area/verifier", "type/security"]
+    },
+    {
+      "id": "G2",
+      "title": "feat(agent): give every refusal a stable reason code",
+      "summary": "The `refused` bucket carries prose in `why` and nothing a CI job can route on.",
+      "motivation": "A machine consumer needs to distinguish 'this rule has no mechanical remedy, stop asking' from 'the model produced nothing usable, retry'. Prose answers neither. The codes are also the vocabulary the proof artifact will publish, so they have to exist before the artifact does.",
+      "files": ["src/vexar_autofix/agent.py", "src/vexar_autofix/models.py", "tests/test_agent.py"],
+      "acceptance_criteria": [
+        "Every bucket entry carries a code from a closed enum: no_remedy, not_confirmed, unsafe_rule, ambiguous_anchor, verification_failed, tests_failed, model_no_edits",
+        "`why` is kept as the human string and never replaced by the code",
+        "--json exposes the code on every entry",
+        "A test asserts no bucket entry can exist without a code"
+      ],
+      "labels": ["roadmap", "help wanted", "good first issue", "difficulty/easy", "area/agent", "type/feature"]
+    },
+    {
+      "id": "G3",
+      "title": "feat(proof): emit a signed proof artifact for every run",
+      "summary": "Evidence today is a terminal diff plus --json. A buyer wants a file they can attach to a ticket.",
+      "motivation": "This is the moat made portable. A proof artifact is what turns 'trust us, we verified it' into an artifact a security team can file, diff between releases, and keep after the tool is uninstalled.",
+      "files": ["src/vexar_autofix/report.py", "docs/proof-artifact.schema.json", "tests/test_report.py"],
+      "acceptance_criteria": [
+        "--report PATH writes a versioned JSON document",
+        "It records target hash before/after, scanner and model versions, per-finding decision with code, the diff and the gate results",
+        "`verified` is true only when every gate passed",
+        "The file validates against docs/proof-artifact.schema.json",
+        "Output is deterministic apart from timestamps, pinned by a golden test"
+      ],
+      "labels": ["roadmap", "help wanted", "difficulty/hard", "type/proof", "area/agent"]
+    },
+    {
+      "id": "G4",
+      "title": "feat(cli): fix-policy flags so a team can bound what will be touched",
+      "summary": "The set of fixable rules is global. A team cannot say 'fix timeouts only' or 'never touch this rule'.",
+      "motivation": "Adoption stalls on the first reviewer who asks 'what stops this from rewriting the function I care about'. A bounded policy is the answer, and it costs almost nothing because the rule set is already a closed frozenset.",
+      "files": ["src/vexar_autofix/cli.py", "src/vexar_autofix/agent.py", "tests/test_cli.py"],
+      "acceptance_criteria": [
+        "--allow-rules, --block-rules and --require-approval RULES are implemented",
+        "A --policy preset exists: conservative (MCP010 only), default (all four), strict (approval for any patch that deletes a sink)",
+        "A blocked rule is reported, never attempted",
+        "An approval-required patch stops before writing and prints the exact command to apply it"
+      ],
+      "labels": ["roadmap", "help wanted", "difficulty/medium", "area/cli", "type/feature"]
+    },
+    {
+      "id": "G5",
+      "title": "feat(action): GitHub Action with preview, gate and apply modes",
+      "summary": "There is no way to use this from CI without a local install and a key in the job.",
+      "motivation": "The scanner already has an Action, so the child product has no entry point in the place where its parent is already used. Preview mode is the important one: it shows the diff on the PR and writes nothing, which is how a security team decides to trust the tool with apply mode.",
+      "files": ["action.yml", ".github/workflows/", "docs/action.md"],
+      "acceptance_criteria": [
+        "Three modes: preview (PR comment, never writes), gate (fail if a confirmed finding remains fixable), apply (commit to a branch)",
+        "Usable from a workflow file with no local install",
+        "A preview run on this repo's own fixtures is linked from the README"
+      ],
+      "labels": ["roadmap", "help wanted", "difficulty/medium", "area/ci", "type/feature"]
+    },
+    {
+      "id": "G6",
+      "title": "test(verifier): a rejection corpus of patches that must never be accepted",
+      "summary": "The differentiator is refusing bad patches, and there is no public evidence of how often it refuses them.",
+      "motivation": "A tool that says 'we catch bad fixes' is a claim. A corpus of named bad fixes, each with the verdict it must receive, is evidence. It also grows by itself: every real failure found becomes a case, so the number in the README only ever goes up.",
+      "files": ["benchmarks/rejections/", "eval/run_eval.py", "README.md"],
+      "acceptance_criteria": [
+        "benchmarks/rejections/ holds every patch the audit must reject, with rule, reason and expected verdict",
+        "The accepted canonical set sits beside it so both sides are measured",
+        "The corpus runs in CI",
+        "The rejection count is published in the README and on the demo page and only grows"
+      ],
+      "labels": ["roadmap", "help wanted", "difficulty/medium", "type/proof", "area/verifier"]
+    },
+    {
+      "id": "G7",
+      "title": "docs(proof): VERIFICATION.md - how to reproduce every published number",
+      "summary": "The README and demo page quote scores, finding counts and costs. The recipe to reproduce them is scattered across commits.",
+      "motivation": "Every figure this project publishes is supposed to carry a timestamp and a commit. That only holds if a stranger can rerun the command and get the same number. Without this page, the honesty claim is a style of writing rather than a property of the repo.",
+      "files": ["VERIFICATION.md", "docs/data/runs.json"],
+      "acceptance_criteria": [
+        "Every published number is listed with the exact command that produces it",
+        "Each entry names the commit and date it was captured at",
+        "Anything that cannot be reproduced offline says so explicitly",
+        "The token and cost fields in docs/data/runs.json are populated from the provider response, not assembled by hand"
+      ],
+      "labels": ["roadmap", "help wanted", "good first issue", "difficulty/easy", "type/docs", "type/proof"]
+    },
+    {
+      "id": "G8",
+      "title": "chore(release): rename the import package to vexar_mcp and publish to PyPI",
+      "summary": "The distribution is Vexar-MCP but the import package is mcp_doctor, and that name belongs to a different project on PyPI.",
+      "motivation": "Nothing can be published until this lands, and the pin in this repo points at a commit rather than a version because of it. The rename has to happen in the parent first, with a shim, then the two import sites here, then the release - in that order, in one coordinated change.",
+      "files": ["pyproject.toml", "src/vexar_autofix/verifier.py"],
+      "acceptance_criteria": [
+        "Parent renames src/mcp_doctor to src/vexar_mcp and keeps an mcp_doctor shim for one minor version",
+        "This repo's imports move to vexar_mcp",
+        "The dependency pin moves from a commit SHA to a published version",
+        "`pip install vexar-mcp` and `pip install vexar-autofix` coexist with no file overlap"
+      ],
+      "labels": ["roadmap", "priority/p0", "difficulty/hard", "area/release"]
+    }
+  ]
+}

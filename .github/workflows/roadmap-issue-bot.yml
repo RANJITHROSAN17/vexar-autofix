@@ -1,0 +1,47 @@
+name: Roadmap Curator Bot
+
+# Raises one issue per queued roadmap item and closes the ones that shipped. Nothing here is
+# written by hand: the manifest is the queue, so the two cannot drift apart.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/roadmap.json"
+      - ".github/scripts/sync_roadmap_issues.py"
+      - ".github/workflows/roadmap-issue-bot.yml"
+  issues:
+    types: [closed]
+  schedule:
+    # Monday morning, before the week is planned rather than after it.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: roadmap-curator
+  cancel-in-progress: false
+
+jobs:
+  curate:
+    name: Sync labels and replenish the queue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Validate the manifest without touching the API
+        run: python .github/scripts/sync_roadmap_issues.py --dry-run
+
+      - name: Sync labels and open or close issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python .github/scripts/sync_roadmap_issues.py

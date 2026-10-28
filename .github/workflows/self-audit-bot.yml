@@ -1,0 +1,45 @@
+name: Self-Audit Bot
+
+# The README and the demo page publish specific numbers: 4/100 (F) for the bad fixture,
+# 73/100 (C) for the partial one, 100/100 (A+) for the clean one, and an audit that refuses
+# an absurd timeout. This workflow re-derives every one of them on each push.
+#
+# If it goes red, the repository is advertising something it no longer does. That is the one
+# failure a verification product cannot afford to ship quietly.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  schedule:
+    # Weekly, because an external dependency can move even when this repository does not.
+    - cron: "15 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  claims:
+    name: Do the published claims reproduce?
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Re-derive every published number
+        run: python .github/scripts/self_audit.py --out self_audit.md
+
+      - name: Publish the table to the job summary
+        if: always()
+        run: cat self_audit.md >> "$GITHUB_STEP_SUMMARY"
