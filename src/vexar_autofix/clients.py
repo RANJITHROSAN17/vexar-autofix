@@ -19,6 +19,17 @@ from .models import Usage
 
 DEFAULT_BASE_URL = "https://api.tokenfactory.nebius.com/v1"
 
+# Token Factory serves the same catalogue from a global host and from region-suffixed
+# hosts. Which one answers depends on the project's region, and the failure mode of
+# picking wrong is a DNS error at demo time, so the preflight tries them all rather than
+# trusting a single hardcoded value.
+CANDIDATE_BASE_URLS: tuple[str, ...] = (
+    "https://api.tokenfactory.nebius.com/v1",
+    "https://api.tokenfactory.us-central1.nebius.com/v1",
+    "https://api.tokenfactory.eu-north1.nebius.com/v1",
+    "https://api.tokenfactory.us-north1.nebius.com/v1",
+)
+
 # Tiering is the point: each role does a different job, not the same job at a different
 # price. Triage runs on every finding and only classifies; patching needs real code
 # understanding; escalation is reserved for attempts that already failed verification.
@@ -73,11 +84,15 @@ class NebiusClient:
     def usage(self) -> Usage:
         return self._usage
 
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
     def models(self) -> list[str]:
         """List the live catalogue.
 
         Worth calling once rather than trusting a hardcoded ID: Token Factory's lineup
-        changes and model IDs are the most common source of a silent 404 at demo time.
+        changes, and a stale model ID is the most common cause of a silent 404 at demo time.
         """
         request = urllib.request.Request(
             f"{self._base_url}/models",
