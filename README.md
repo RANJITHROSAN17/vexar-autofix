@@ -72,7 +72,7 @@ on any machine.
 ```bash
 git clone https://github.com/RANJITHROSAN17/vexar-autofix
 cd vexar-autofix
-pip install -e .
+pip install -e .      # pulls the scanner from GitHub, pinned to a commit, not a branch
 
 # Rehearsal: no network, no model, no key. Clearly labelled fake output.
 vexar-autofix --target examples/vulnerable_server.py --provider mock --rehearse-accept
@@ -319,6 +319,39 @@ AUTOFIX_MODEL_TRIAGE=...  AUTOFIX_MODEL_PATCH=...  AUTOFIX_MODEL_ESCALATE=...
 
 The client is stdlib `urllib`, not the OpenAI SDK: the scanner underneath is dependency-free, and
 the agent should not be the thing that changes that.
+
+---
+
+## Nebius stack: what is used, and where it pays
+
+Everything that reasons runs on **Nebius Token Factory**, through one OpenAI-compatible endpoint.
+There are three NVIDIA open-source Nemotron models, and the routing between them is the design
+decision, not a wrapper:
+
+- **`nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`** — one call per *finding*. This is the highest-volume
+  job in the system, so it runs on the cheapest tier. A scan of ten findings makes ten of these
+  calls and no expensive ones.
+- **`nvidia/nemotron-3-super-120b-a12b`** — one call per *queued finding*, i.e. only what survived
+  triage as mechanically fixable.
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`** — only after a **verification already failed**, and it
+  receives the rejected patch plus the reason it was rejected. It is paid for exactly when cheap
+  reasoning has demonstrably not worked.
+
+Where Token Factory accelerated the work: it collapses what would otherwise be three vendor
+integrations and three key-handling paths into one endpoint and one `NEBIUS_API_KEY`, and its
+per-token pricing is what makes calling a model **per finding** affordable at all. The alternative —
+one large model for every decision — either costs too much to run on a whole repository or forces
+you to batch decisions and lose the per-finding verdict. `--preflight` exists because a wrong key
+and a wrong endpoint both present as the same confusing failure mid-run, and at hackathon time
+that difference costs hours.
+
+**Other Nebius tools and services: none.** No serverless endpoints, no managed vector store, no
+hosted database. All state is a file in this repository — `docs/data/runs.json` holds the recorded
+run, committed so it can be inspected rather than taken on trust. If a later version adds a Nebius
+service, this paragraph changes in the same commit.
+
+The offline rehearsal (`--provider mock`) uses none of this, which is why the pipeline can be
+inspected end to end without a key or a network call.
 
 ---
 
