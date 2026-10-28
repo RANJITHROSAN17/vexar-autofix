@@ -66,7 +66,7 @@ CASES: tuple[Case, ...] = (
 )
 
 
-def evaluate(client: Any, case: Case, *, check_tests: bool) -> dict[str, Any]:
+def evaluate(client: Any, case: Case, *, check_tests: bool, quiet: bool = False) -> dict[str, Any]:
     target = EXAMPLES / case.name
     found = scan(target)
     found_rules = {f.rule_id for f in found}
@@ -86,7 +86,11 @@ def evaluate(client: Any, case: Case, *, check_tests: bool) -> dict[str, Any]:
         result.update(clean=bool(report.get("clean")), queued=0, fixed=0, regressions=0)
         return result
 
-    report = autofix(client, target, check_tests=check_tests)
+    def progress(message: str) -> None:
+        if not quiet:
+            print(f"  [{case.name}] {message}", file=sys.stderr, flush=True)
+
+    report = autofix(client, target, check_tests=check_tests, progress=progress)
     regressions = 0
     if report.get("verified"):
         after_rules = {f.rule_id for f in scan(target)}
@@ -111,6 +115,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--provider", choices=("nebius", "mock"), default="nebius")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--check-tests", action="store_true", help="include the target's test suite")
+    parser.add_argument("--case", help="run a single fixture by filename, for a faster loop")
     args = parser.parse_args(argv)
 
     if args.provider == "mock":
@@ -126,7 +131,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         client = NebiusClient(key, os.environ.get("NEBIUS_BASE_URL", DEFAULT_BASE_URL))
         banner = "LIVE: numbers below come from real model calls."
 
-    results = [evaluate(client, case, check_tests=args.check_tests) for case in CASES]
+    cases = [c for c in CASES if args.case is None or c.name == args.case]
+    if not cases:
+        print(f"error: no case named {args.case!r}. Known: {[c.name for c in CASES]}", file=sys.stderr)
+        return 2
+    results = [evaluate(client, case, check_tests=args.check_tests, quiet=args.json) for case in cases]
 
     if args.json:
         print(json.dumps({"banner": banner, "results": results}, indent=2))

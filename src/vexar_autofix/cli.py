@@ -208,7 +208,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    report = autofix(client, args.target, max_attempts=args.max_attempts, check_tests=not args.no_tests)
+    def progress(message: str) -> None:
+        # stderr, so `--json` keeps a clean document on stdout while a human still sees what
+        # the agent is doing. A silent multi-minute run is indistinguishable from a hang.
+        print(f"  .. {message}", file=sys.stderr, flush=True)
+
+    report = autofix(
+        client,
+        args.target,
+        max_attempts=args.max_attempts,
+        check_tests=not args.no_tests,
+        progress=None if args.json else progress,
+    )
 
     if args.json:
         print(json.dumps(report, indent=2))

@@ -12,7 +12,7 @@ import json
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from .clients import Client
 from .models import Attempt, Edit, Finding, Verdict
@@ -28,6 +28,16 @@ from .verifier import (
     score_of,
     verify,
 )
+
+
+class Progress(Protocol):
+    """Receives human-readable progress lines while a run is in flight."""
+
+    def __call__(self, message: str) -> None: ...
+
+
+def _noop(_: str) -> None:
+    return None
 
 
 def _finding_payload(findings: Sequence[Finding]) -> list[dict[str, Any]]:
@@ -110,6 +120,7 @@ def autofix(
     *,
     max_attempts: int = 3,
     check_tests: bool = True,
+    progress: Progress | None = None,
 ) -> dict[str, Any]:
     """Remediate confirmed findings one at a time, verified at every step.
 
@@ -118,8 +129,10 @@ def autofix(
     a finding the model cannot solve. The alternative -- one patch for every finding --
     fails as a unit, so one unsolvable rule discards all the good work with it.
     """
+    emit = progress or _noop
     original = target.read_text(encoding="utf-8")
     current = original
+    emit(f"scanning {target.name}")
     findings = scan(target)
     before_score, before_grade = score_of(target)
 
@@ -130,6 +143,7 @@ def autofix(
             "before": {"score": before_score, "grade": before_grade},
         }
 
+    emit(f"triaging {len(findings)} finding(s) with the cheap model")
     verdicts = triage(client, current, findings)
     work = [v.finding for v in verdicts if v.confirmed and v.finding.rule_id in AUTOFIXABLE]
 
@@ -187,20 +201,25 @@ def autofix(
         workspace = Path(tmp) / target.name
         workspace.write_text(current, encoding="utf-8")
 
-        for finding in work:
+        total = len(work)
+        for position, finding in enumerate(work, start=1):
             feedback: str | None = None
             fixed_this = False
+            emit(f"[{position}/{total}] {finding.rule_id} at line {finding.line}")
 
             for attempt in range(1, max_attempts + 1):
                 role = "patch" if attempt == 1 else "escalate"
+                emit(f"  attempt {attempt} ({role} model)")
                 edits = propose(client, role, current, [finding], feedback)
                 patched, applied, problems = apply_edits(current, edits)
                 record = Attempt(attempt, role, edits, applied)
 
                 if not edits:
                     record.failure = "model emitted no edits"
+                    emit("  rejected: model emitted no edits")
                 elif problems:
                     record.failure = "; ".join(problems)
+                    emit(f"  rejected: {record.failure[:100]}")
                 else:
                     # Captured before `current` is reassigned below. Reading it afterwards
                     # compares the patch with itself and silently reports nothing.
@@ -236,6 +255,7 @@ def autofix(
                         findings = after
                         fixed_this = True
                         result["review"].extend(review_notes(before_this_patch, patched))
+                        emit(f"  verified: {outcome.cleared or 'cleared'}")
                         result["fixed"].append(
                             {
                                 "rule_id": finding.rule_id,
@@ -249,6 +269,7 @@ def autofix(
                         break
                     record.failure = outcome.reason
                     feedback = outcome.reason
+                    emit(f"  rejected: {outcome.reason[:100]}")
 
                 result["attempts"].append(
                     {**record.to_dict(), "rule_id": finding.rule_id, "tool": finding.tool_name}
