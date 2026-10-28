@@ -235,6 +235,41 @@ class TestPatchAudit:
         )
         assert audit_patch("MCP007", self.SOURCE, after) == []
 
+    def test_unbounded_timeout_is_not_a_fix(self) -> None:
+        """MCP010's remedy is a *bound*, not the presence of the keyword argument.
+
+        `timeout=float('inf')` clears the scanner's rule exactly as `timeout=10` does, and
+        leaves a request that can hang forever -- the same failure as MCP005's shell=False,
+        one rule over. Found by auditing the audit: MCP010 was the only autofixable rule
+        with no entry in SMELLS.
+        """
+        from vexar_autofix import audit_patch
+
+        for bad in ("timeout=None", "timeout=float('inf')", "timeout=10**9", "timeout=86400"):
+            after = self.SOURCE.replace(
+                "urllib.request.urlopen(target_url) as resp",
+                f"urllib.request.urlopen(target_url, {bad}) as resp",
+            )
+            problems = audit_patch("MCP010", self.SOURCE, after)
+            assert problems, f"{bad} must not be accepted as a timeout fix"
+
+    def test_bounded_timeout_is_a_fix(self) -> None:
+        from vexar_autofix import audit_patch
+
+        for good in ("timeout=10", "timeout=2.5", "timeout=TIMEOUT_SECONDS"):
+            after = self.SOURCE.replace(
+                "urllib.request.urlopen(target_url) as resp",
+                f"urllib.request.urlopen(target_url, {good}) as resp",
+            )
+            assert not audit_patch("MCP010", self.SOURCE, after), f"{good} should be accepted"
+
+    def test_every_fixable_rule_is_covered_by_the_audit(self) -> None:
+        """A fixable rule with no audit entry is accepted on the scanner's word alone."""
+        from vexar_autofix.verifier import AUTOFIXABLE, REMEDY_MARKERS, SMELLS
+
+        uncovered = [r for r in AUTOFIXABLE if r not in SMELLS and r not in REMEDY_MARKERS]
+        assert not uncovered, f"autofixable rules with no patch audit: {uncovered}"
+
     def test_preexisting_code_cannot_trigger_a_rejection(self) -> None:
         # The audit reads only added lines. A file that already contains `shell=True`
         # somewhere else must not poison an unrelated MCP006 patch.

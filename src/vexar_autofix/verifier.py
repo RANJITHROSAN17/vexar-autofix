@@ -174,7 +174,9 @@ def build_diff(before: str, after: str, name: str) -> str:
 # cheaper than a human catching it in review and far cheaper than shipping it.
 # --------------------------------------------------------------------------------------
 
-# Anti-patterns per rule, as (pattern, explanation). Each pattern looks only at lines the
+# Anti-patterns per rule, as (pattern, explanation). Every rule in AUTOFIXABLE has an
+# entry here or in REMEDY_MARKERS below -- a fixable rule without an audit is a rule whose
+# patches are accepted on the scanner's word alone. Each pattern looks only at lines the
 # patch ADDED, so pre-existing code cannot trigger a rejection.
 SMELLS: dict[str, tuple[tuple[str, str], ...]] = {
     "MCP005": (
@@ -184,6 +186,26 @@ SMELLS: dict[str, tuple[tuple[str, str], ...]] = {
             "command as one string; subprocess then looks for a file literally named after "
             "the whole command, so any command with arguments fails. Pass an argv list, e.g. "
             "subprocess.run(shlex.split(cmd), check=False)",
+        ),
+    ),
+    "MCP010": (
+        (
+            r"timeout\s*=\s*None",
+            "timeout=None is the same as no timeout: the request can block forever. Pass a "
+            "bounded number of seconds",
+        ),
+        (
+            r"timeout\s*=\s*(float\s*\(\s*)?[\"']?inf",
+            "an infinite timeout is not a timeout. Pass a bounded number of seconds",
+        ),
+        (
+            r"timeout\s*=\s*10\s*\*\*\s*\d+|timeout\s*=\s*\d+e\d+",
+            "a timeout written as a power of ten is not a bound. Pass a realistic number of seconds",
+        ),
+        (
+            r"timeout\s*=\s*\d{5,}",
+            "a timeout measured in days is indistinguishable from no timeout at all in "
+            "practice. Pass a realistic number of seconds",
         ),
     ),
     "MCP007": (
@@ -204,6 +226,10 @@ SMELLS: dict[str, tuple[tuple[str, str], ...]] = {
 # is not proof of a bad patch, so these are checked only for rules where the canonical fix
 # has a uniquely identifiable shape.
 REMEDY_MARKERS: dict[str, tuple[str, str]] = {
+    "MCP010": (
+        r"timeout\s*=\s*(?!None)[A-Za-z0-9_.]+",
+        "no bounded timeout found; pass an explicit number of seconds or a named constant",
+    ),
     "MCP005": (
         r"(shlex\.split|\[[^\]]*\]|\.split\s*\()",
         "the command is still passed as a single string; pass an argv list "

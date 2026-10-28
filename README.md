@@ -412,6 +412,7 @@ examples/         three hand-written MCP servers: vulnerable, helper-delegation,
 eval/run_eval.py  ground-truth measurement; exits non-zero on any regression
 tests/            46 tests, no network or key required
 docs/             the static demo page + recorded run data
+ROADMAP.md        the verified 90-day plan: gaps, dates, invariants, non-goals
 scripts/          capture_demo.py — regenerates docs/data/runs.json inside GitHub Actions
 ```
 

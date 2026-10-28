@@ -68,6 +68,10 @@ Rule count is not on this list on purpose.
 
 ## Roadmap
 
+The operational version of this — with verified status per item, dates, acceptance
+criteria and the invariants that must not regress — is [`ROADMAP.md`](ROADMAP.md).
+
+
 **0–3 months — make the prototype undeniable**
 
 - Keep Vexar-MCP free, CI-first, MIT. It is the funnel, not the product.
