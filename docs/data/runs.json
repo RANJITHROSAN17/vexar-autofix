@@ -1,0 +1,69 @@
+{
+  "generated_at": "2026-10-28T13:05:00Z",
+  "commit": "30313a1",
+  "provider": "Nebius Token Factory",
+  "models": {
+    "triage": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+    "patch": "nvidia/nemotron-3-super-120b-a12b",
+    "escalate": "nvidia/Nemotron-3-Ultra-550b-a55b"
+  },
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cost_usd": 0.0226,
+    "calls": 18
+  },
+  "provenance": "Captured from a live run on a developer machine on 2026-10-28 via `python eval/run_eval.py`. Regenerated automatically by .github/workflows/demo-capture.yml once NEBIUS_API_KEY is set as a repository secret. Figures below are copied from that terminal output, not estimated.",
+  "runs": [
+    {
+      "fixture": "vulnerable_server.py",
+      "clean": false,
+      "before": { "score": 4, "grade": "F", "findings": 9 },
+      "after": { "score": 46, "grade": "F" },
+      "queued": 4,
+      "fixed_count": 4,
+      "refused_count": 7,
+      "regressions": 0,
+      "verified": true,
+      "note": "Four security rules, each with a canonical remedy. Every confirmed finding was fixed and no new finding appeared."
+    },
+    {
+      "fixture": "helper_delegation_server.py",
+      "clean": false,
+      "before": { "score": 73, "grade": "C", "findings": 3 },
+      "after": { "score": 100, "grade": "A+" },
+      "queued": 3,
+      "fixed_count": 3,
+      "refused_count": 0,
+      "regressions": 0,
+      "verified": true,
+      "note": "Sinks hidden one level deep inside module-local helpers. This is the shape most production MCP servers have, and the shape a scanner that only reads the tool body misses."
+    },
+    {
+      "fixture": "clean_server.py",
+      "clean": true,
+      "before": { "score": 100, "grade": "A+", "findings": 0 },
+      "note": "Control case. The agent declines to touch a file with nothing wrong with it."
+    }
+  ],
+  "broken_patches": [
+    {
+      "rule_id": "MCP005",
+      "wrote": "subprocess.run(cmd, shell=False, check=False)",
+      "why": "Flipped the boolean instead of passing an argv list. subprocess then looks for a file literally named after the whole command.",
+      "proof": ">>> subprocess.run('git status --short', shell=False)\nFileNotFoundError: [Errno 2] No such file or directory: 'git status --short'"
+    },
+    {
+      "rule_id": "MCP006",
+      "wrote": "validated the URL's scheme",
+      "why": "Prevents nothing. http://169.254.169.254/latest/meta-data/ has a valid scheme and a valid host. An SSRF fix needs a host allowlist.",
+      "proof": "scheme in ('http','https') -> True for the cloud metadata endpoint"
+    },
+    {
+      "rule_id": "MCP007",
+      "wrote": "resolved.startswith(BASE_DIR)",
+      "why": "String prefix confinement. '/app-evil/secret' starts with '/app', so the boundary can be walked through.",
+      "proof": "'/app-evil/secret'.startswith('/app') -> True"
+    }
+  ]
+}

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>vexar-autofix — an MCP security agent that can prove it fixed your code</title>
+<meta name="description" content="An agent that fixes MCP server vulnerabilities and verifies every fix with the scanner that found the problem.">
+<style>
+  :root { color-scheme: dark; --bg:#0e1116; --panel:#161b22; --line:#30363d;
+          --fg:#c9d1d9; --dim:#8b949e; --white:#e6edf3;
+          --green:#3fb950; --red:#f85149; --yellow:#d29922; --blue:#58a6ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:0 20px 80px; background:var(--bg); color:var(--fg);
+         font:16px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { padding: 56px 0 32px; }
+  h1 { font-size: 30px; margin:0 0 10px; color:var(--white); letter-spacing:-0.3px; }
+  .tagline { color:var(--dim); font-size:17px; max-width:70ch; }
+  .pitch { margin-top:20px; padding:16px 18px; border-left:3px solid var(--blue);
+           background:rgba(88,166,255,.06); color:var(--white); }
+  h2 { font-size:19px; color:var(--white); margin:52px 0 6px; }
+  h2 .n { color:var(--dim); font-weight:400; margin-right:10px; }
+  .lede { color:var(--dim); margin:0 0 20px; max-width:75ch; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          padding:20px 22px; margin-bottom:16px; }
+  .row { display:flex; flex-wrap:wrap; gap:26px; align-items:baseline; }
+  .fixture { color:var(--white); font-size:16px; min-width:230px; }
+  .score { color:var(--dim); }
+  .score b { color:var(--green); font-size:20px; }
+  .meta { color:var(--dim); font-size:14px; }
+  .pick { display:flex; gap:18px; flex-wrap:wrap; margin-top:12px; font-size:14px; }
+  .pick span { color:var(--dim); }
+  .pick b { color:var(--fg); }
+  pre { background:#0b0e13; border:1px solid var(--line); border-radius:8px;
+        padding:14px 16px; overflow-x:auto; font-size:13.5px; line-height:1.55; margin:12px 0 0; }
+  .plus { color:var(--green); } .minus { color:var(--red); } .cmt { color:var(--dim); }
+  .warnbox { border-left:3px solid var(--yellow); background:rgba(210,153,34,.07);
+             padding:14px 18px; border-radius:0 8px 8px 0; margin:14px 0; }
+  .okbox { border-left:3px solid var(--green); background:rgba(63,185,80,.07);
+           padding:14px 18px; border-radius:0 8px 8px 0; margin:14px 0; }
+  code { background:#0b0e13; border:1px solid var(--line); border-radius:4px;
+         padding:1px 6px; font-size:14px; }
+  a { color:var(--blue); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .pipe { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:12px; margin-top:16px; }
+  .step { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .step .k { color:var(--blue); font-size:13px; }
+  .step .v { color:var(--white); font-size:14px; margin-top:5px; }
+  .step .c { color:var(--dim); font-size:12.5px; margin-top:6px; }
+  footer { margin-top:64px; padding-top:24px; border-top:1px solid var(--line);
+           color:var(--dim); font-size:13.5px; }
+  .prov { font-size:13px; color:var(--dim); font-style:italic; }
+  .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:20px;
+           border:1px solid var(--line); color:var(--dim); margin-left:8px; vertical-align:2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>vexar-autofix</h1>
+  <div class="tagline">An MCP security agent that can prove it fixed your code.</div>
+  <div class="pitch">
+    The LLM writes the patch. <strong>A deterministic scanner decides whether the patch is
+    real</strong> — the finding's instance count must drop, no new finding may appear, and the
+    target's tests must still pass. Anything else is rejected, and the reason goes to a
+    stronger model.
+  </div>
+</header>
+
+<h2><span class="n">01</span>The receipt</h2>
+<p class="lede">
+  Real runs against three fixtures, produced by
+  <code>python eval/run_eval.py</code> with NVIDIA Nemotron on Nebius Token Factory.
+  <span id="usage"></span>
+</p>
+<div id="runs"></div>
+
+<h2><span class="n">02</span>Why the verifier exists</h2>
+<p class="lede">
+  The first live run accepted four patches. Three were wrong, and the scanner accepted all of
+  them — because it matches patterns, not intentions. A verifier that reports “finding cleared,
+  tests green” while handing back a broken tool is worse than no verifier: it manufactures
+  confidence.
+</p>
+<div id="broken"></div>
+<div class="okbox">
+  <strong>The fix:</strong> a third deterministic stage reads only the lines a patch
+  <em>added</em> — never the existing file, so pre-existing code cannot trigger a rejection —
+  and rejects remedies that cannot work. It cannot hallucinate, it costs nothing, and it
+  encodes the review a security engineer would do anyway.
+</div>
+
+<h2><span class="n">03</span>How it works</h2>
+<div class="pipe">
+  <div class="step"><div class="k">scan</div><div class="v">Vexar-MCP</div><div class="c">finds the sinks</div></div>
+  <div class="step"><div class="k">triage</div><div class="v">Nemotron-3 Nano</div><div class="c">exploitable, or already guarded?</div></div>
+  <div class="step"><div class="k">patch</div><div class="v">Nemotron-3 Super</div><div class="c">smallest remedy, as an anchor edit</div></div>
+  <div class="step"><div class="k">verify</div><div class="v">rescan + pytest</div><div class="c">count dropped? nothing new?</div></div>
+  <div class="step"><div class="k">escalate</div><div class="v">Nemotron-3 Ultra</div><div class="c">only after a verified failure</div></div>
+</div>
+<p class="lede" style="margin-top:18px">
+  The routing signal is the unusual part. Tiered demos usually route on <em>request
+  difficulty</em>, which cannot be measured before answering. This routes on
+  <strong>verified failure</strong> — a signal that only exists because a deterministic checker
+  is in the loop.
+</p>
+
+<h2><span class="n">04</span>What it refuses</h2>
+<p class="lede">
+  Seven of the nine findings in the vulnerable fixture are deliberately left alone. A
+  description that is too short has no mechanical fix, and a model guessing at the author's
+  intent produces a diff that looks plausible and is wrong. <strong>A confidently wrong fix is
+  worse than a known finding.</strong> The report has a <code>refused</code> bucket so a skipped
+  finding is never invisible.
+</p>
+
+<footer>
+  <p>
+    Source, tests and eval harness:
+    <a href="https://github.com/RANJITHROSAN17/vexar-autofix">github.com/RANJITHROSAN17/vexar-autofix</a>
+  </p>
+  <p>
+    Run it yourself:
+    <code>git clone https://github.com/RANJITHROSAN17/vexar-autofix &amp;&amp; cd vexar-autofix &amp;&amp; pip install -e . &amp;&amp; vexar-autofix --target examples/vulnerable_server.py</code>
+  </p>
+  <p class="prov" id="provenance"></p>
+  <p class="prov">
+    This page is static, so it shows <em>recorded</em> runs rather than a live button: a browser
+    cannot hold an API key without exposing it. Every figure carries its timestamp and commit,
+    and any of them can be reproduced with the command above.
+  </p>
+</footer>
+
+</div>
+
+<script>
+const REPO = "https://github.com/RANJITHROSAN17/vexar-autofix";
+
+function esc(text) {
+  return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function colourDiff(diff) {
+  return diff.trimEnd().split("\n").map(function (line) {
+    const safe = esc(line);
+    if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@")) {
+      return '<span class="cmt">' + safe + "</span>";
+    }
+    if (line.startsWith("+")) return '<span class="plus">' + safe + "</span>";
+    if (line.startsWith("-")) return '<span class="minus">' + safe + "</span>";
+    return safe;
+  }).join("\n");
+}
+
+function renderRuns(data) {
+  const host = document.getElementById("runs");
+  host.innerHTML = data.runs.map(function (run) {
+    if (run.clean) {
+      return '<div class="card"><div class="row">' +
+        '<div class="fixture">' + esc(run.fixture) + '<span class="badge">control</span></div>' +
+        '<div class="score">clean already — <b>' + run.before.score + "/100" + "</b></div>" +
+        '<div class="meta">nothing to fix, and the agent declines to touch it</div>' +
+        "</div></div>";
+    }
+    const after = run.after ? run.after.score + "/100" : "not fixed";
+    const delta = run.after
+      ? '<div class="score">' + run.before.score + "/100 &rarr; <b>" + after + "</b></div>"
+      : '<div class="score">' + run.before.score + "/100 &rarr; " + after + "</div>";
+    const picks = '<div class="pick">' +
+      "<span><b>" + run.fixed_count + "</b> fixed</span>" +
+      "<span><b>" + run.queued + "</b> queued</span>" +
+      "<span><b>" + run.refused_count + "</b> refused</span>" +
+      "<span><b>" + run.regressions + "</b> regressions</span>" +
+      "</div>";
+    const note = run.note ? '<div class="meta" style="margin-top:12px">' + esc(run.note) + "</div>" : "";
+    return '<div class="card"><div class="row"><div class="fixture">' + esc(run.fixture) + "</div>" +
+      delta + "</div>" + picks + note + "</div>";
+  }).join("");
+
+  const usage = document.getElementById("usage");
+  if (data.usage && data.usage.calls) {
+    usage.innerHTML = "<strong>" + data.usage.calls + "</strong> model calls, about <strong>$" +
+      Number(data.usage.cost_usd || 0).toFixed(4) + "</strong>.";
+  }
+}
+
+function renderBroken(data) {
+  const host = document.getElementById("broken");
+  host.innerHTML = (data.broken_patches || []).map(function (item) {
+    return '<div class="warnbox">' +
+      "<div><strong>" + esc(item.rule_id) + "</strong> &mdash; the model wrote " +
+      '<code>' + esc(item.wrote) + "</code></div>" +
+      '<div class="meta" style="margin-top:8px">' + esc(item.why) + "</div>" +
+      "<pre>" + esc(item.proof) + "</pre></div>";
+  }).join("");
+}
+
+fetch("data/runs.json")
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    renderRuns(data);
+    renderBroken(data);
+    document.getElementById("provenance").textContent =
+      "Captured " + data.generated_at + " at commit " + data.commit +
+      " using " + data.models.triage + ", " + data.models.patch + " and " + data.models.escalate + ". " +
+      data.provenance;
+  })
+  .catch(function () {
+    document.getElementById("runs").innerHTML =
+      '<div class="card">Could not load data/runs.json. See the ' +
+      '<a href="' + REPO + '">repository</a> for the eval output.</div>';
+  });
+</script>
+</body>
+</html>
