@@ -13,7 +13,7 @@ import pytest
 
 from vexar_autofix import Edit, Finding, apply_edits, verify
 
-FIXTURE = Path(__file__).resolve().parent.parent / "examples" / "vulnerable_server.py"
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "vulnerable_server.py"
 
 
 def finding(index: int, rule: str, line: int, tool: str = "svc") -> Finding:
@@ -258,3 +258,49 @@ class TestPatchAudit:
         )
         notes = review_notes(self.SOURCE, after)
         assert notes and "removed" in notes[0]
+
+
+class TestReviewNotesAccuracy:
+    """A replaced sink is not a deleted sink, and the note must not conflate them.
+
+    The first version reported "removed entirely" for lines the model had swapped for an
+    equivalent call (one live run replaced `os.system(cmd)` with a second
+    `subprocess.run(shlex.split(cmd))`). Telling a reviewer a call was deleted when it was
+    replaced sends them looking for missing functionality that is still there -- and, worse,
+    hides the duplicate execution that actually happened.
+    """
+
+    def test_replacement_is_not_reported_as_a_deletion(self) -> None:
+        from vexar_autofix import review_notes
+
+        before = "def f(cmd):\n    os.system(cmd)\n"
+        after = "def f(cmd):\n    subprocess.run(shlex.split(cmd), check=False)\n"
+        assert review_notes(before, after) == []
+
+    def test_deletion_is_reported_with_a_count(self) -> None:
+        from vexar_autofix import review_notes
+
+        before = "def f(cmd):\n    os.system(cmd)\n    subprocess.run(cmd, shell=True)\n"
+        after = "def f(cmd):\n    return 1\n"
+        notes = review_notes(before, after)
+        assert notes and "2 sink call site(s) removed" in notes[0]
+
+    def test_adding_a_call_is_not_a_review_note(self) -> None:
+        from vexar_autofix import review_notes
+
+        before = "def f(cmd):\n    return 1\n"
+        after = "def f(cmd):\n    return subprocess.run(cmd)\n"
+        assert review_notes(before, after) == []
+
+
+def test_the_agent_never_reads_a_fixture_the_demo_can_rewrite() -> None:
+    """Tests must not depend on `examples/`, which `--apply` legitimately rewrites.
+
+    This was a live foot-gun: `--apply` half-fixed examples/vulnerable_server.py and the
+    suite went red on ground truth rather than on a real defect.
+    """
+    for name in ("test_verifier.py", "test_agent.py"):
+        source = (Path(__file__).resolve().parent / name).read_text(encoding="utf-8")
+        for line in source.splitlines():
+            if line.lstrip().startswith("FIXTURE ="):
+                assert "examples" not in line, f"{name} points FIXTURE at the demo playground"

@@ -14,7 +14,7 @@ import pytest
 
 from vexar_autofix import MockClient, autofix
 
-FIXTURE = Path(__file__).resolve().parent.parent / "examples" / "vulnerable_server.py"
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "vulnerable_server.py"
 
 
 @pytest.fixture

@@ -244,17 +244,32 @@ def audit_patch(rule_id: str, before: str, after: str) -> list[str]:
     return problems
 
 
+_SINK_CALL = re.compile(r"(os\.system|subprocess\.\w+|eval)\s*\(")
+
+
 def review_notes(before: str, after: str) -> list[str]:
     """Non-blocking observations a human should see alongside the diff.
 
-    Deleting a dangerous call is sometimes correct and sometimes drops functionality; no
-    mechanical check can tell the difference, so this is reported rather than enforced.
+    Deleting a dangerous call is sometimes correct and sometimes silently drops
+    functionality; no mechanical check can tell the difference, so this is reported rather
+    than enforced.
+
+    Deleting and *replacing* look identical line-by-line, so the comparison is on call-site
+    counts. A sink swapped for an equivalent call is a replacement and needs no warning; a
+    call site that disappeared needs a human to confirm nothing was lost.
     """
-    removed = [
+    before_calls = len(_SINK_CALL.findall(before))
+    after_calls = len(_SINK_CALL.findall(after))
+    if after_calls >= before_calls:
+        return []
+
+    gone = [
         line.strip()
         for line in before.splitlines()
-        if line not in after.splitlines() and re.search(r"(os\.system|subprocess\.|shell=True|eval\()", line)
+        if line not in after.splitlines() and _SINK_CALL.search(line)
     ]
-    if not removed:
-        return []
-    return [f"removed {len(removed)} sink line(s) entirely -- confirm nothing was lost: {removed[0][:80]}"]
+    detail = f": {gone[0][:80]}" if gone else ""
+    return [
+        f"{before_calls - after_calls} sink call site(s) removed entirely -- "
+        f"confirm no functionality was dropped{detail}"
+    ]

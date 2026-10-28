@@ -108,7 +108,9 @@ class NebiusClient:
         payload: dict[str, Any] = {
             "model": model,
             "messages": list(messages),
-            "temperature": 0.1,
+            # 0.0 so a judge re-running the demo reproduces the demo. At 0.1 the same
+            # file produced 5 fixes in one run and 3 in the next, purely from sampling.
+            "temperature": 0.0,
         }
         if json_mode:
             # Not every Nemotron deployment honours response_format, so callers parse

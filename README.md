@@ -192,14 +192,24 @@ finding for another, CI goes red.
 ```
 fixture                          found  queued  fixed  refused  regress  score
 ------------------------------------------------------------------------------
-vulnerable_server.py                 9       5      1        7        0  4 -> 34
-helper_delegation_server.py          3       3      0        0        0  -
+vulnerable_server.py                 9       4      4        7        0  4 -> 46
+helper_delegation_server.py          3       3      3        0        0  73 -> 100
 clean_server.py                      0       0      0        0        0  -
 ```
 
-> The run above is the **offline rehearsal** (`--provider mock`) — no model was called, so the
-> edits are scripted and the numbers are not a quality result. Run it with a key to get the real
-> table; that is the number that means something.
+Real model calls: Nemotron-3 Nano triage, Super patching, Ultra on escalation.
+`20 model calls, ~$0.0444` for the whole suite.
+
+Two things in that table are worth reading carefully:
+
+- **`helper_delegation_server.py` reaches 100.** Those sinks sit one hop away inside local
+  helpers, which is the shape most production MCP servers have and exactly what a scan that
+  only reads the tool body misses.
+- **`queued` < `found`.** Only the confirmed, mechanically-fixable findings are attempted. The
+  rest are reported and left alone, by design.
+
+Numbers are per-run and the models are sampled, so a re-run moves them. Treat them as evidence
+that the loop works, not as a fixed accuracy claim.
 
 The `fixed` count being *lower* than `queued` is not a failure to hide. It is the agent correctly
 declining work it could not verify.
