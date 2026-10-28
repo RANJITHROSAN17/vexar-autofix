@@ -106,7 +106,15 @@
   is in the loop.
 </p>
 
-<h2><span class="n">04</span>What it refuses</h2>
+<h2><span class="n">04</span>Tested against real code, not only fixtures</h2>
+<p class="lede">
+  A scanner that only fires on the deliberately-vulnerable fixture proves nothing. So the
+  tool was run against <a href="https://github.com/nebius/mcp-server">Nebius's own MCP
+  server</a>, a real Python codebase.
+</p>
+<div id="realworld"></div>
+
+<h2><span class="n">05</span>What it refuses</h2>
 <p class="lede">
   Seven of the nine findings in the vulnerable fixture are deliberately left alone. A
   description that is too short has no mechanical fix, and a model guessing at the author's
@@ -185,6 +193,32 @@ function renderRuns(data) {
   }
 }
 
+function renderRealWorld(data) {
+  const host = document.getElementById("realworld");
+  const rw = data.real_world;
+  if (!host || !rw) return;
+  const findings = (rw.detail || []).map(function (f) {
+    return '<div class="card" style="margin-top:14px">' +
+      '<div class="row"><div class="fixture">' + esc(f.rule_id) + " &mdash; " + esc(f.severity) + "</div>" +
+      '<div class="meta">' + esc(f.where) + "</div></div>" +
+      '<div style="margin-top:10px">' + esc(f.message) + "</div>" +
+      '<div class="meta" style="margin-top:8px">' + esc(f.fix) + "</div></div>";
+  }).join("");
+  host.innerHTML =
+    '<div class="card"><div class="row">' +
+      '<div class="fixture">' + esc(rw.what) + "</div>" +
+      '<div class="score"><b>' + rw.score + "/100</b> (" + esc(rw.grade) + ")</div>" +
+    "</div>" +
+    '<div class="pick">' +
+      "<span><b>" + rw.tools + "</b> tools</span>" +
+      "<span><b>" + rw.files + "</b> files analysed</span>" +
+      "<span><b>" + rw.findings + "</b> finding</span>" +
+      "<span><b>" + rw.risk_index + "</b>/100 risk index</span>" +
+    "</div>" +
+    '<div class="meta" style="margin-top:12px">' + esc(rw.note) + "</div>" +
+    "</div>" + findings;
+}
+
 function renderBroken(data) {
   const host = document.getElementById("broken");
   host.innerHTML = (data.broken_patches || []).map(function (item) {
@@ -201,6 +235,7 @@ fetch("data/runs.json")
   .then(function (data) {
     renderRuns(data);
     renderBroken(data);
+    renderRealWorld(data);
     document.getElementById("provenance").textContent =
       "Captured " + data.generated_at + " at commit " + data.commit +
       " using " + data.models.triage + ", " + data.models.patch + " and " + data.models.escalate + ". " +

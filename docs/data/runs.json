@@ -18,8 +18,15 @@
     {
       "fixture": "vulnerable_server.py",
       "clean": false,
-      "before": { "score": 4, "grade": "F", "findings": 9 },
-      "after": { "score": 46, "grade": "F" },
+      "before": {
+        "score": 4,
+        "grade": "F",
+        "findings": 9
+      },
+      "after": {
+        "score": 46,
+        "grade": "F"
+      },
       "queued": 4,
       "fixed_count": 4,
       "refused_count": 7,
@@ -30,8 +37,15 @@
     {
       "fixture": "helper_delegation_server.py",
       "clean": false,
-      "before": { "score": 73, "grade": "C", "findings": 3 },
-      "after": { "score": 100, "grade": "A+" },
+      "before": {
+        "score": 73,
+        "grade": "C",
+        "findings": 3
+      },
+      "after": {
+        "score": 100,
+        "grade": "A+"
+      },
       "queued": 3,
       "fixed_count": 3,
       "refused_count": 0,
@@ -42,7 +56,11 @@
     {
       "fixture": "clean_server.py",
       "clean": true,
-      "before": { "score": 100, "grade": "A+", "findings": 0 },
+      "before": {
+        "score": 100,
+        "grade": "A+",
+        "findings": 0
+      },
       "note": "Control case. The agent declines to touch a file with nothing wrong with it."
     }
   ],
@@ -65,5 +83,26 @@
       "why": "String prefix confinement. '/app-evil/secret' starts with '/app', so the boundary can be walked through.",
       "proof": "'/app-evil/secret'.startswith('/app') -> True"
     }
-  ]
+  ],
+  "real_world": {
+    "repo": "https://github.com/nebius/mcp-server",
+    "what": "Nebius's own MCP server (Python, MIT)",
+    "score": 94,
+    "grade": "A",
+    "tools": 4,
+    "files": 8,
+    "risk_index": 20,
+    "findings": 1,
+    "detail": [
+      {
+        "rule_id": "MCP002",
+        "severity": "warning",
+        "where": "nebius_mcp_server/server.py:94",
+        "tool": "nebius_cli_execute",
+        "message": "Tool consumes ~659 tokens against a 250-token budget.",
+        "fix": "Keep tool descriptions concise and move lengthy tutorials to MCP resources."
+      }
+    ],
+    "note": "No security findings. A well-built server: the only observation is context budget, not a vulnerability. Included because a scanner that only ever fires on the deliberately-vulnerable fixture proves nothing about real code."
+  }
 }
