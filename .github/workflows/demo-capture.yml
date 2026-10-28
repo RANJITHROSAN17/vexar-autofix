@@ -13,6 +13,7 @@ on:
       - "src/vexar_autofix/**"
       - "examples/**"
       - "scripts/capture_demo.py"
+      - ".github/workflows/demo-capture.yml"
 
 permissions:
   contents: write
@@ -37,16 +38,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
+      # `secrets` cannot be read from an `if:` expression -- referencing it there makes GitHub
+      # reject the entire workflow before any job starts. So the secret is turned into a step
+      # output first, and the branch reads that instead. Scoping the key to these steps also
+      # keeps it out of the environment of checkout and setup-python.
+      - name: Detect API key
+        id: key
+        env:
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+        run: |
+          if [ -n "$NEBIUS_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Without the secret this step is skipped rather than failing the workflow: a fork or
       # a contributor's push should not go red just because they have no key.
       - name: Capture a real run
-        if: ${{ secrets.NEBIUS_API_KEY != '' }}
+        if: steps.key.outputs.present == 'true'
         env:
           NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
         run: python scripts/capture_demo.py
 
       - name: Note missing secret
-        if: ${{ secrets.NEBIUS_API_KEY == '' }}
+        if: steps.key.outputs.present == 'false'
         run: echo "NEBIUS_API_KEY secret not set; demo data left unchanged."
 
       - name: Commit regenerated data
