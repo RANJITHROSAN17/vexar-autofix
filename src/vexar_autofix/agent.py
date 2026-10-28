@@ -17,7 +17,17 @@ from typing import Any
 from .clients import Client
 from .models import Attempt, Edit, Finding, Verdict
 from .prompts import PATCH_PROMPT, TRIAGE_PROMPT
-from .verifier import AUTOFIXABLE, apply_edits, build_diff, run_tests, scan, score_of, verify
+from .verifier import (
+    AUTOFIXABLE,
+    apply_edits,
+    audit_patch,
+    build_diff,
+    review_notes,
+    run_tests,
+    scan,
+    score_of,
+    verify,
+)
 
 
 def _finding_payload(findings: Sequence[Finding]) -> list[dict[str, Any]]:
@@ -140,17 +150,31 @@ def autofix(
         "fixed": [],
         "unfixed": [],
         "refused": [],
+        "skipped": [],
+        "review": [],
         "attempts": [],
         "verified": False,
     }
 
+    # Every finding lands in exactly one bucket. Anything unaccounted for is a finding the
+    # user cannot reason about, and a silently skipped finding is indistinguishable from a
+    # clean one.
     for v in verdicts:
-        if v.finding.rule_id not in AUTOFIXABLE:
+        rule = v.finding.rule_id
+        if rule not in AUTOFIXABLE:
             result["refused"].append(
                 {
-                    "rule_id": v.finding.rule_id,
+                    "rule_id": rule,
                     "line": v.finding.line,
-                    "why": "rule is not on the autofixable list; left to a human",
+                    "why": "rule has no mechanical remedy; left to a human",
+                }
+            )
+        elif not v.confirmed:
+            result["skipped"].append(
+                {
+                    "rule_id": rule,
+                    "line": v.finding.line,
+                    "why": f"autofixable, but triage answered '{v.verdict}': {v.reason[:80]}",
                 }
             )
 
@@ -178,6 +202,22 @@ def autofix(
                 elif problems:
                     record.failure = "; ".join(problems)
                 else:
+                    # Does the patch implement the remedy, or did it just silence the rule?
+                    # Checked before the scanner runs: a patch that clears the rule by
+                    # flipping a boolean or deleting the call is worse than no patch.
+                    smells = audit_patch(finding.rule_id, current, patched)
+                    if smells:
+                        record.failure = "; ".join(smells)
+                        feedback = record.failure
+                        result["attempts"].append(
+                            {
+                                **record.to_dict(),
+                                "rule_id": finding.rule_id,
+                                "tool": finding.tool_name,
+                            }
+                        )
+                        continue
+
                     workspace.write_text(patched, encoding="utf-8")
                     after = scan(workspace)
                     tests_ok = run_tests(workspace.parent) if check_tests else None
@@ -191,6 +231,7 @@ def autofix(
                         current = patched
                         findings = after
                         fixed_this = True
+                        result["review"].extend(review_notes(current, patched))
                         result["fixed"].append(
                             {
                                 "rule_id": finding.rule_id,

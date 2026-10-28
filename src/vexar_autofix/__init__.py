@@ -7,7 +7,17 @@ __version__ = "0.1.0"
 from .agent import autofix, propose, triage
 from .clients import DEFAULT_BASE_URL, MODEL_ROLES, MockClient, NebiusClient
 from .models import Attempt, Edit, Finding, Usage, Verdict, Verification
-from .verifier import AUTOFIXABLE, apply_edits, build_diff, run_tests, scan, score_of, verify
+from .verifier import (
+    AUTOFIXABLE,
+    apply_edits,
+    audit_patch,
+    build_diff,
+    review_notes,
+    run_tests,
+    scan,
+    score_of,
+    verify,
+)
 
 __all__ = [
     "AUTOFIXABLE",
@@ -23,9 +33,11 @@ __all__ = [
     "Verification",
     "__version__",
     "apply_edits",
+    "audit_patch",
     "autofix",
     "build_diff",
     "propose",
+    "review_notes",
     "run_tests",
     "scan",
     "score_of",

@@ -7,6 +7,7 @@ the problem. No model output is ever accepted on its own authority.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -158,3 +159,102 @@ def build_diff(before: str, after: str, name: str) -> str:
             f"b/{name}",
         )
     )
+
+
+# --------------------------------------------------------------------------------------
+# Patch audit: does the patch actually implement the remedy, or did it just silence the rule?
+#
+# Clearing a rule is not the same as fixing the code. A model can remove a finding by
+# flipping a boolean, deleting the call, or writing a validation that checks the wrong
+# thing -- and the scanner, which matches patterns, will accept all three. These checks are
+# deterministic and rule-specific, so they cost nothing and cannot themselves hallucinate.
+#
+# The bar is deliberately "would a security reviewer accept this", not "is it perfect".
+# A patch that trips a check is rejected and the reason is fed back to the model, which is
+# cheaper than a human catching it in review and far cheaper than shipping it.
+# --------------------------------------------------------------------------------------
+
+# Anti-patterns per rule, as (pattern, explanation). Each pattern looks only at lines the
+# patch ADDED, so pre-existing code cannot trigger a rejection.
+SMELLS: dict[str, tuple[tuple[str, str], ...]] = {
+    "MCP005": (
+        (
+            r"shell\s*=\s*False",
+            "keeps the shell plumbing alive by flipping shell=False while still passing the "
+            "command as one string; subprocess then looks for a file literally named after "
+            "the whole command, so any command with arguments fails. Pass an argv list, e.g. "
+            "subprocess.run(shlex.split(cmd), check=False)",
+        ),
+    ),
+    "MCP007": (
+        (
+            r"startswith\s*\(",
+            "confines the path by string prefix, so '<base>-evil' passes a check against "
+            "'<base>'. Use os.path.commonpath, or Path(resolved).is_relative_to(base)",
+        ),
+        (
+            r"abspath\s*\(\s*[\"']\.[\"']\s*\)",
+            "derives the base directory from the current working directory, so the "
+            "confinement boundary moves with the process. Use an explicit, fixed base",
+        ),
+    ),
+}
+
+# A remedy is only credible if the patch mentions the mechanism that makes it work. Absence
+# is not proof of a bad patch, so these are checked only for rules where the canonical fix
+# has a uniquely identifiable shape.
+REMEDY_MARKERS: dict[str, tuple[str, str]] = {
+    "MCP005": (
+        r"(shlex\.split|\[[^\]]*\]|\.split\s*\()",
+        "the command is still passed as a single string; pass an argv list "
+        "(shlex.split(cmd) or [prog, *args])",
+    ),
+    "MCP006": (
+        r"(ALLOWED_HOSTS|allowlist|allow_list|hostname\s*(not\s+)?in\s|netloc\s*(not\s+)?in\s)",
+        "no host allowlist found. Validating the scheme does not prevent SSRF: "
+        "http://169.254.169.254/latest/meta-data/ has a valid scheme and host",
+    ),
+}
+
+
+def audit_patch(rule_id: str, before: str, after: str) -> list[str]:
+    """Return reasons this patch should NOT be trusted, or an empty list.
+
+    Only lines added by the patch are inspected, so existing code cannot trigger a false
+    rejection. Rejection is fail-closed on purpose: a retry costs a fraction of a cent, and
+    a wrong patch costs the user's trust in every other patch the tool produces.
+    """
+    before_lines = set(before.splitlines())
+    added = "\n".join(line for line in after.splitlines() if line not in before_lines)
+    if not added.strip():
+        return []
+
+    problems: list[str] = []
+    for pattern, explanation in SMELLS.get(rule_id, ()):
+        if re.search(pattern, added):
+            problems.append(f"{rule_id} patch is not a real fix: {explanation}")
+            break  # one reason per rule is enough feedback for the next attempt
+
+    marker = REMEDY_MARKERS.get(rule_id)
+    if marker and not problems:
+        pattern, explanation = marker
+        if not re.search(pattern, added):
+            problems.append(f"{rule_id} patch does not implement the remedy: {explanation}")
+
+    return problems
+
+
+def review_notes(before: str, after: str) -> list[str]:
+    """Non-blocking observations a human should see alongside the diff.
+
+    Deleting a dangerous call is sometimes correct and sometimes drops functionality; no
+    mechanical check can tell the difference, so this is reported rather than enforced.
+    """
+    removed = [
+        line.strip()
+        for line in before.splitlines()
+        if line not in after.splitlines() and re.search(r"(os\.system|subprocess\.|shell=True|eval\()", line)
+    ]
+    if not removed:
+        return []
+    return [f"removed {len(removed)} sink line(s) entirely -- confirm nothing was lost: {removed[0][:80]}"]

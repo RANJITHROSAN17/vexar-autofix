@@ -54,14 +54,23 @@ def _print_report(report: dict[str, Any], apply: bool, target: Path) -> None:
     fixed = report.get("fixed", [])
     if fixed:
         print(f"fixed       {len(fixed)} finding(s); {len(report.get('unfixed', []))} left to a human")
+    if report.get("skipped"):
+        count = len(report["skipped"])
+        print(f"skipped     {count} autofixable finding(s) triage did not confirm:")
+        for item in report["skipped"]:
+            print(f"  {item['rule_id']} @{item['line']}  {item['why'][:88]}")
     if report.get("refused"):
-        print(f"refused     {len(report['refused'])} finding(s) outside the autofixable rule set")
+        print(f"refused     {len(report['refused'])} finding(s) with no mechanical remedy")
 
     if report.get("verified"):
         print(f"after       {report['after']['score']}/100 ({report['after']['grade']})")
         print(f"tests       {'unchanged / passing' if report['tests_ok'] in (True, None) else 'FAILED'}")
         print()
         print(report["diff"], end="")
+        if report.get("review"):
+            print()
+            for note in report["review"]:
+                print(f"REVIEW      {note}")
         if apply:
             target.write_text(str(report["patch"]), encoding="utf-8")
             print(f"\napplied to {target}")

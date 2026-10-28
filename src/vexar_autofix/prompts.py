@@ -34,14 +34,25 @@ Hard rules:
   an edit that does not apply is a wasted attempt, not a partial success.
 - Preserve the tool's public signature. Agents already call it with those argument names.
 
-Canonical remedies:
-- MCP005 dangerous shell execution: drop `shell=True` and pass an argv list, or use a
-  pinned allowlist of commands. Never interpolate user input into a shell string.
-- MCP006 unvalidated SSRF sink: validate scheme and host against an allowlist before the
-  request, and reject on failure.
-- MCP007 unconfined filesystem access: resolve the path and assert it is inside a fixed
-  base directory before touching the filesystem.
+Canonical remedies. A patch that only makes the scanner stop complaining will be REJECTED:
+
+- MCP005 dangerous shell execution: pass an argv list, e.g.
+  `subprocess.run(shlex.split(cmd), check=False)`. Do NOT write `shell=False` while still
+  passing the command as one string -- subprocess then looks for a file literally named
+  after the whole command, so any command with arguments raises FileNotFoundError. That is
+  a broken tool, not a fix.
+- MCP006 unvalidated SSRF sink: check the parsed hostname against an allowlist (a module
+  constant such as ALLOWED_HOSTS) and reject when it is not a member. Checking only the
+  scheme or that a host exists does NOT prevent SSRF: http://169.254.169.254/latest/meta-data/
+  has a valid scheme and a valid host.
+- MCP007 unconfined filesystem access: resolve the path and confine it with
+  `Path(resolved).is_relative_to(base)` or `os.path.commonpath`. Do NOT use
+  `str.startswith(base)` -- `<base>-evil` passes that check. The base must be a fixed,
+  explicit path, not `os.path.abspath(".")`, which moves with the working directory.
 - MCP010 missing network timeout: pass an explicit `timeout=` value.
+
+If you cannot produce a remedy that actually works, emit no edit. An honest refusal is
+worth more than a plausible-looking patch that a reviewer will reject.
 
 Return JSON only, no prose and no markdown fences:
 {"edits": [{"rule_id": <str>, "find": <str>, "replace": <str>, "why": <str>}]}

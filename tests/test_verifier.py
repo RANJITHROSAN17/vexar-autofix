@@ -123,3 +123,138 @@ class TestAgainstTheRealScanner:
         clean = FIXTURE.parent / "clean_server.py"
         assert scan(clean) == []
         assert score_of(clean)[0] == 100
+
+
+class TestPatchAudit:
+    """The audit is tested against the patches a real model actually produced.
+
+    On the first live run, three of four accepted patches were wrong: MCP005 flipped
+    `shell=False` and broke every command with arguments, MCP006 validated the scheme (which
+    does nothing for SSRF), and MCP007 confined by string prefix (`/app-evil` passes `/app`).
+    The scanner accepted all three. These are those patches.
+    """
+
+    SOURCE = (
+        "import subprocess, os\n"
+        "import urllib.request\n"
+        "\n"
+        "def run(cmd):\n"
+        "    subprocess.run(cmd, shell=True, check=False)\n"
+        "    os.system(cmd)\n"
+        "\n"
+        "def fetch(target_url):\n"
+        "    with urllib.request.urlopen(target_url) as resp:\n"
+        "        return resp.read()\n"
+        "\n"
+        "def save(output_path, data):\n"
+        "    with open(output_path, 'w') as fh:\n"
+        "        fh.write(data)\n"
+    )
+
+    def test_shell_false_with_a_string_is_rejected(self) -> None:
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    subprocess.run(cmd, shell=True, check=False)\n    os.system(cmd)\n",
+            "    subprocess.run(cmd, shell=False, check=False)\n",
+        )
+        problems = audit_patch("MCP005", self.SOURCE, after)
+        assert problems, "a patch that breaks the tool must not be accepted"
+        assert "shell" in problems[0].lower()
+
+    def test_argv_form_is_accepted(self) -> None:
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    subprocess.run(cmd, shell=True, check=False)\n    os.system(cmd)\n",
+            "    subprocess.run(shlex.split(cmd), check=False)\n",
+        )
+        assert audit_patch("MCP005", self.SOURCE, after) == []
+
+    def test_scheme_only_validation_is_not_an_ssrf_fix(self) -> None:
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    with urllib.request.urlopen(target_url) as resp:",
+            "    parsed = urlparse(target_url)\n"
+            "    if parsed.scheme not in ('http', 'https'):\n"
+            "        raise ValueError('bad scheme')\n"
+            "    with urllib.request.urlopen(target_url) as resp:",
+        )
+        problems = audit_patch("MCP006", self.SOURCE, after)
+        assert problems, "http://169.254.169.254/ has a valid scheme; this fixes nothing"
+        assert "allowlist" in problems[0].lower()
+
+    def test_host_allowlist_is_accepted(self) -> None:
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    with urllib.request.urlopen(target_url) as resp:",
+            "    host = urlparse(target_url).hostname\n"
+            "    if host not in ALLOWED_HOSTS:\n"
+            "        raise ValueError('host not allowed')\n"
+            "    with urllib.request.urlopen(target_url) as resp:",
+        )
+        assert audit_patch("MCP006", self.SOURCE, after) == []
+
+    def test_prefix_confinement_is_rejected(self) -> None:
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    with open(output_path, 'w') as fh:",
+            "    resolved = os.path.abspath(output_path)\n"
+            "    if not resolved.startswith(BASE_DIR):\n"
+            "        raise ValueError('traversal')\n"
+            "    with open(resolved, 'w') as fh:",
+        )
+        problems = audit_patch("MCP007", self.SOURCE, after)
+        assert problems, "'/app-evil/x' passes a startswith('/app') check"
+        assert "commonpath" in problems[0]
+
+    def test_cwd_relative_base_is_rejected(self) -> None:
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    with open(output_path, 'w') as fh:",
+            "    resolved = str(Path(output_path).resolve())\n"
+            "    if not resolved.startswith(BASE_DIR):\n"
+            "        raise ValueError('traversal')\n"
+            "    with open(resolved, 'w') as fh:",
+        )
+        assert audit_patch("MCP007", self.SOURCE, after)
+
+    def test_relative_to_confinement_is_accepted(self) -> None:
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    with open(output_path, 'w') as fh:",
+            "    resolved = Path(output_path).resolve()\n"
+            "    if not resolved.is_relative_to(BASE_DIR):\n"
+            "        raise ValueError('traversal')\n"
+            "    with open(resolved, 'w') as fh:",
+        )
+        assert audit_patch("MCP007", self.SOURCE, after) == []
+
+    def test_preexisting_code_cannot_trigger_a_rejection(self) -> None:
+        # The audit reads only added lines. A file that already contains `shell=True`
+        # somewhere else must not poison an unrelated MCP006 patch.
+        from vexar_autofix import audit_patch
+
+        after = self.SOURCE.replace(
+            "    with urllib.request.urlopen(target_url) as resp:",
+            "    if urlparse(target_url).hostname not in ALLOWED_HOSTS:\n"
+            "        raise ValueError('host')\n"
+            "    with urllib.request.urlopen(target_url) as resp:",
+        )
+        assert audit_patch("MCP006", self.SOURCE, after) == []
+
+    def test_sink_deletion_is_reported_but_not_blocked(self) -> None:
+        # Deleting a dangerous call is sometimes right and sometimes drops functionality.
+        # No mechanical check can tell, so it is surfaced to the human rather than enforced.
+        from vexar_autofix import review_notes
+
+        after = self.SOURCE.replace(
+            "    subprocess.run(cmd, shell=True, check=False)\n    os.system(cmd)\n", ""
+        )
+        notes = review_notes(self.SOURCE, after)
+        assert notes and "removed" in notes[0]

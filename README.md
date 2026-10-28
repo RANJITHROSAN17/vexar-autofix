@@ -100,6 +100,29 @@ Each accepted patch is small enough to review, a failure is attributable to a si
 partial progress survives a finding the model cannot solve. One giant patch for every finding fails
 as a unit and takes the good work down with it.
 
+### Verification also audits the patch, not just the rule count
+
+Clearing a rule is not the same as fixing the code, and a scanner cannot tell the difference —
+it matches patterns. On the first live run, the model produced four patches the scanner accepted
+and three were wrong:
+
+| Rule | What it wrote | What it actually did |
+|---|---|---|
+| MCP005 | `subprocess.run(cmd, shell=False)` | Flipped the boolean instead of building an argv list, so subprocess looks for a file literally named after the whole command. Every command with arguments now raises `FileNotFoundError` |
+| MCP006 | validated the URL's scheme | Nothing. `http://169.254.169.254/latest/meta-data/` has a valid scheme *and* a valid host |
+| MCP007 | `resolved.startswith(BASE_DIR)` | `/app-evil/secret` passes a check against `/app` |
+
+So the verifier gained a third stage: a **deterministic patch audit** that reads only the lines a
+patch added and rejects remedies that cannot work — `shell=False` on a string, an SSRF "fix" with
+no host allowlist, prefix-based path confinement, a base directory derived from the current working
+directory. Rejection is fail-closed and the reason is fed back to the model for the next attempt.
+
+This is another rule-based check rather than another model opinion: it costs nothing, cannot
+hallucinate, and encodes the review a security engineer would do anyway.
+
+Deleting a dangerous call outright is *reported* rather than rejected — sometimes it is right,
+sometimes it silently drops functionality, and no mechanical check can tell which.
+
 ### Verification is line-shift invariant
 
 The first version of the verifier compared findings by `(rule, tool, line)`. A patch that deleted
@@ -187,7 +210,7 @@ declining work it could not verify.
 
 ```bash
 pip install -e ".[dev]"
-pytest            # 32 tests, offline, no key required
+pytest            # 41 tests, offline, no key required
 ruff check . && mypy src --strict
 ```
 
