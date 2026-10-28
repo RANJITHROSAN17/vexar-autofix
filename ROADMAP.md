@@ -204,6 +204,12 @@ work must keep them green.
 - **Autonomous writes.** No unattended `--apply` on a high-risk rule, ever.
 - **A hosted SaaS.** The artifact is the product; where it is produced is secondary.
 - **Publishing to PyPI before G8 is resolved.**
+- **A web-search dependency in the fix loop.** Considered and deferred, not rejected. The agent's
+  inputs are the file, the finding and the verifier's reason - all local, all reproducible from a
+  commit. A live search call would make the output a property of the afternoon rather than of the
+  commit, which is the one claim the proof artifact exists to make. The defensible version, if it
+  is ever built, is *advisory enrichment* on confirmed findings with the fetch time recorded in the
+  artifact; it is deliberately not in these 90 days.
 
 ## How to tell whether this is working
 
