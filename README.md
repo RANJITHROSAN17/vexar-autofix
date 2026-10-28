@@ -37,8 +37,8 @@ pip install -e .
 
 export NEBIUS_API_KEY=...          # https://tokenfactory.nebius.com
 
-# Check the models you were given actually exist before you build on them
-vexar-autofix --list-models
+# Confirm the key works, find the right endpoint, and check the routed models exist
+vexar-autofix --preflight
 
 # Audit and patch, without writing anything
 vexar-autofix --target examples/vulnerable_server.py
@@ -187,7 +187,7 @@ declining work it could not verify.
 
 ```bash
 pip install -e ".[dev]"
-pytest            # 26 tests, offline, no key required
+pytest            # 32 tests, offline, no key required
 ruff check . && mypy src --strict
 ```
 

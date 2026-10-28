@@ -49,7 +49,8 @@ jobs:
 
       - name: CLI smoke test
         run: |
-          vexar-autofix --list-models 2>/dev/null || echo "no key in CI, skipping live model check"
+          # Needs a key, so in CI it is expected to exit non-zero.
+          vexar-autofix --preflight || echo "no key in CI, skipping live model check"
           vexar-autofix --target examples/vulnerable_server.py --provider mock --no-tests | tail -20
 
       # Match credential *shapes*, not the string "NEBIUS_API_KEY=". A placeholder like
