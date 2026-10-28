@@ -254,16 +254,16 @@ cannot work:
 ```python
 # verifier.py — each pattern is checked against added lines only
 SMELLS = {
-    "MCP005": ((r"shell\s*=\s*False",
-                "passing the command as one string; pass an argv list"),),
-    "MCP007": ((r"startswith\s*\(",
-                "'<base>-evil' passes a check against '<base>'"),),
+    "MCP005": ((r"shell\s*=\s*False", "passing the command as one string; pass an argv list"),),
+    "MCP007": ((r"startswith\s*\(", "'<base>-evil' passes a check against '<base>'"),),
 }
 
 # A remedy is only credible if the patch names the mechanism that makes it work.
 REMEDY_MARKERS = {
-    "MCP006": (r"(ALLOWED_HOSTS|allowlist|hostname\s*(not\s+)?in\s)",
-               "validating the scheme does not prevent SSRF"),
+    "MCP006": (
+        r"(ALLOWED_HOSTS|allowlist|hostname\s*(not\s+)?in\s)",
+        "validating the scheme does not prevent SSRF",
+    ),
 }
 ```
 
