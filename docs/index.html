@@ -1957,6 +1957,11 @@ REMEDY_MARKERS = {
     var name = root.getAttribute("data-replay");
     var plan = REPLAYS[name];
     if (!plan) return;
+
+    // A second Replay (or the auto-replay firing while one is in flight) must supersede the
+    // first, not interleave with it: every timer below checks it still owns the console.
+    var token = (root.__runToken || 0) + 1;
+    root.__runToken = token;
     var out = $("[data-console]", root);
     var button = $("[data-run]", root);
     var rail = $$(".st", root);
@@ -1976,6 +1981,7 @@ REMEDY_MARKERS = {
 
     var index = 0;
     function next() {
+      if (root.__runToken !== token) return;
       if (index >= queue.length) {
         var cursor = document.createElement("span");
         cursor.className = "cursor";
@@ -2021,7 +2027,9 @@ REMEDY_MARKERS = {
         entries.forEach(function (entry) {
           if (!entry.isIntersecting) return;
           once.disconnect();
-          window.setTimeout(function () { runReplay(firstReplay); }, 650);
+          window.setTimeout(function () {
+            if (!firstReplay.__runToken) runReplay(firstReplay);
+          }, 650);
         });
       }, { threshold: 0.35 });
       once.observe(firstReplay);
