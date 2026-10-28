@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vexar-autofix"
+version = "0.1.0"
+description = "An MCP security agent that can prove it fixed your code."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ranjith Rosan" }]
+keywords = ["mcp", "security", "agents", "nemotron", "nebius", "autofix"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Security",
+]
+
+# The scanner is the verifier, so it is a hard dependency rather than a nice-to-have.
+# Pinned to a commit SHA, not a branch: a judging run next month must reproduce the same
+# verification behaviour as the demo today.
+dependencies = [
+  "Vexar-MCP @ git+https://github.com/RANJITHROSAN17/Vexar-MCP@dd4c07b2119966122cd7e1695ff74964f20bc22c",
+]
+
+[project.optional-dependencies]
+demo = ["fastapi>=0.115", "uvicorn>=0.30"]
+dev = ["pytest>=8.0.0", "ruff>=0.5.0", "mypy>=1.10.0"]
+
+[project.scripts]
+vexar-autofix = "vexar_autofix.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PLW", "RET", "C4"]
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = "mcp_doctor.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
