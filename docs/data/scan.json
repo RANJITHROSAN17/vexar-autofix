@@ -1,0 +1,150 @@
+{
+ "scanner": "Vexar-MCP @ dd4c07b",
+ "cases": [
+  {
+   "fixture": "vulnerable_server.py",
+   "score": 4,
+   "grade": "F",
+   "instances": 12,
+   "rules": [
+    "MCP001",
+    "MCP003",
+    "MCP004",
+    "MCP005",
+    "MCP006",
+    "MCP007",
+    "MCP008",
+    "MCP010",
+    "MCP015"
+   ],
+   "findings": [
+    {
+     "rule": "MCP001",
+     "severity": "error",
+     "line": 23,
+     "tool": "run",
+     "message": "Tool 'run' has an empty or overly brief description (0 chars; minimum 12 recommended)."
+    },
+    {
+     "rule": "MCP008",
+     "severity": "error",
+     "line": 23,
+     "tool": "run",
+     "message": "Tool name 'run' is overly generic or violates `[a-z][a-z0-9_-]{2,63}`."
+    },
+    {
+     "rule": "MCP003",
+     "severity": "warning",
+     "line": 23,
+     "tool": "run",
+     "message": "Parameter 'cmd' in tool 'run' has no type annotation."
+    },
+    {
+     "rule": "MCP004",
+     "severity": "info",
+     "line": 23,
+     "tool": "run",
+     "message": "Parameter 'limit' in tool 'run' has no upper bound (`maximum` / `maxItems` / `Field(le=...)` / `min(...)`)."
+    },
+    {
+     "rule": "MCP015",
+     "severity": "info",
+     "line": 23,
+     "tool": "run",
+     "message": "2 of 2 parameters in tool 'run' have no description: 'cmd', 'limit'."
+    },
+    {
+     "rule": "MCP005",
+     "severity": "error",
+     "line": 25,
+     "tool": "run",
+     "message": "Tool 'run' invokes dangerous execution sink `subprocess.run(shell=True)` with parameter 'cmd'."
+    },
+    {
+     "rule": "MCP005",
+     "severity": "error",
+     "line": 26,
+     "tool": "run",
+     "message": "Tool 'run' invokes dangerous execution sink `os.system` with parameter 'cmd'."
+    },
+    {
+     "rule": "MCP003",
+     "severity": "warning",
+     "line": 31,
+     "tool": "fetch_and_save_remote_blob",
+     "message": "Parameter 'payload' in tool 'fetch_and_save_remote_blob' uses unconstrained type 'Any'."
+    },
+    {
+     "rule": "MCP015",
+     "severity": "info",
+     "line": 31,
+     "tool": "fetch_and_save_remote_blob",
+     "message": "3 of 3 parameters in tool 'fetch_and_save_remote_blob' have no description: 'target_url', 'output_path', 'payload'."
+    },
+    {
+     "rule": "MCP006",
+     "severity": "warning",
+     "line": 33,
+     "tool": "fetch_and_save_remote_blob",
+     "message": "Tool 'fetch_and_save_remote_blob' passes parameter 'target_url' into outbound request `urllib.request.urlopen` without visible URL/host validation (potential SSRF)."
+    },
+    {
+     "rule": "MCP010",
+     "severity": "warning",
+     "line": 33,
+     "tool": "fetch_and_save_remote_blob",
+     "message": "Tool 'fetch_and_save_remote_blob' performs HTTP sink `urllib.request.urlopen` with parameter 'target_url' without an explicit `timeout=` argument."
+    },
+    {
+     "rule": "MCP007",
+     "severity": "warning",
+     "line": 35,
+     "tool": "fetch_and_save_remote_blob",
+     "message": "Tool 'fetch_and_save_remote_blob' passes parameter 'output_path' to `open(write)` without `.resolve()` / base-directory confinement (path traversal risk)."
+    }
+   ]
+  },
+  {
+   "fixture": "helper_delegation_server.py",
+   "score": 73,
+   "grade": "C",
+   "instances": 3,
+   "rules": [
+    "MCP005",
+    "MCP006",
+    "MCP010"
+   ],
+   "findings": [
+    {
+     "rule": "MCP005",
+     "severity": "error",
+     "line": 41,
+     "tool": "run_backup",
+     "message": "Tool 'run_backup' invokes dangerous execution sink `subprocess.run(shell=True)` with parameter 'command'."
+    },
+    {
+     "rule": "MCP006",
+     "severity": "warning",
+     "line": 45,
+     "tool": "download_report",
+     "message": "Tool 'download_report' passes parameter 'url' into outbound request `urllib.request.urlopen` without visible URL/host validation (potential SSRF)."
+    },
+    {
+     "rule": "MCP010",
+     "severity": "warning",
+     "line": 45,
+     "tool": "download_report",
+     "message": "Tool 'download_report' performs HTTP sink `urllib.request.urlopen` with parameter 'url' without an explicit `timeout=` argument."
+    }
+   ]
+  },
+  {
+   "fixture": "clean_server.py",
+   "score": 100,
+   "grade": "A+",
+   "instances": 0,
+   "rules": [],
+   "findings": []
+  }
+ ]
+}
