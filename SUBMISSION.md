@@ -104,3 +104,119 @@ The model is not the hard part. The hard part is being willing to reject it. Mos
 ## Built with
 
 `python` · `nvidia-nemotron` · `nebius-token-factory` · `mcp` · `static-analysis` · `sarif` · `pytest` · `github-actions` · `github-pages`
+
+---
+
+## Nemotron & Nebius feedback form
+
+The ratings below are marked **[your call]** — they are opinions, and they should be yours.
+Everything factual is drawn from the repository and is reproducible at commit `30313a1`.
+
+**Demo URL**
+
+```
+https://ranjithrosan17.github.io/vexar-autofix/
+```
+
+**Which model(s) did you use, and why did you choose that size/variant?**
+
+Three Nemotron tiers, routed by the job rather than by convenience:
+
+- `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` — **triage**, one call per *finding*. This is the
+  highest-volume decision in the system and it is classification, not reasoning, so it runs on
+  the cheapest tier.
+- `nvidia/nemotron-3-super-120b-a12b` — **patch authoring**, one call per *queued finding*
+  (only what triage marked mechanically fixable). It needs real code understanding, priced so
+  that attempting a patch is affordable.
+- `nvidia/Nemotron-3-Ultra-550b-a55b` — **escalation**, only after a verification has already
+  failed, and it receives the rejected patch plus the reason it was rejected.
+
+The unit of work is a single finding. If a model call per finding is not affordable, you have to
+batch findings, and batching loses the per-finding verdict that the whole tool exists to produce.
+That constraint is what picked the sizes, not a benchmark.
+
+**How would you rate Nemotron's output quality for your use case?**
+
+8/10 **[your call]**
+
+What worked: instruction-following on structured output shape was reliable enough to parse without
+retries, and the Ultra tier used the failure reason productively — given a rejected patch and the
+verifier's explanation, it produced the fix the cheaper tier had missed.
+
+What fell short, stated plainly because it is the product's whole premise: on our **first live run,
+three of four patches the scanner accepted were wrong**. Nano/Super produced a `shell=False` flip
+that broke every command with arguments, an MCP006 patch that validated the URL scheme (which does
+nothing for SSRF), and an MCP007 patch confining by string prefix, so `/app-evil` passed a check
+against `/app`. A second, smaller failure mode: the model sometimes quotes code that is not
+verbatim in the file, so the edit anchor does not match and the patch is rejected as
+`anchor not found`.
+
+None of that is a reason to distrust the model — it is the reason the verifier exists.
+
+**Did you fine-tune, prompt-engineer, or use Nemotron out of the box?**
+
+Out of the box. No fine-tuning, no LoRA, no distillation. Prompt engineering is deliberately
+minimal: each tier gets a task-shaped prompt containing the file, the finding, and — for
+escalation — the previously rejected patch and the verifier's rejection reason. The leverage in
+this project is in the routing and the verifier, not in prompt text; if the prompt had to be
+clever, the architecture would be doing the wrong job.
+
+**How did Nemotron's performance compare to other models you've used for similar tasks?**
+
+We did not run a controlled head-to-head, so we are not publishing a comparison we did not measure.
+Qualitatively: the failure mode — a patch that clears the scanner and leaves the vulnerability — is
+the same class of failure we would expect from any frontier model on this task, which is exactly
+why the product is the verifier rather than the model. CI runs against a scripted mock provider
+precisely so that model comparisons can never contaminate reproducibility.
+
+**Which Nebius platform capabilities were most valuable?**
+
+Token Factory's OpenAI-compatible endpoint, reached over plain serverless API access. One endpoint,
+one `NEBIUS_API_KEY`, three models behind it, and a stdlib `urllib` client — no SDK to install.
+
+- **No GPU instances, no deployment, no autoscaling to configure.** For a two-day build that is
+  the whole value: there was no infrastructure to stand up, only a key to set.
+- **Model selection by ID at runtime**, so the tier can be overridden per run
+  (`AUTOFIX_MODEL_TRIAGE`, `AUTOFIX_MODEL_PATCH`, `AUTOFIX_MODEL_ESCALATE`).
+- **Per-token pricing low enough to call a model per finding**, which is what makes the
+  three-tier design viable rather than aspirational.
+
+We added `--preflight` because a wrong key and a wrong endpoint both present as the same confusing
+failure mid-run, and that difference costs hours when the clock is running.
+
+**How likely are you to recommend running Nemotron on Nebius to other developers?**
+
+9/10 **[your call]** — one key, one endpoint, three model sizes, and prices that survive a
+per-item call pattern. The friction we hit was finding the exact model IDs, which is why the tool
+ships a preflight check.
+
+**Experience running Nemotron on Nebius compared to previous cloud or local environments**
+
+9/10 **[your call]** — there was no environment to build. No CUDA, no model download, no cold
+start, no GPU queue; the first working call came from a stdlib client in minutes. The only rough
+edge was model-ID/region discovery.
+
+**What additional features would have made the experience more effective?**
+
+1. A machine-readable model catalogue — IDs, context window, price, and per-region availability —
+   so a preflight check does not have to be hand-built against a docs page.
+2. Structured/JSON-mode output, or a response schema enforced server-side, for the patch payload.
+   This is the single change that would most reduce our anchor-mismatch failures.
+3. Error codes that distinguish *invalid key* from *unknown model* from *quota exceeded*.
+4. Documented determinism — seed and temperature guarantees — for reproducible runs.
+
+**What do you most hope to see from the Nemotron team next?**
+
+A Nemotron variant tuned for code *editing* rather than code generation — emitting search/replace
+blocks or unified diffs under a schema — because anchor fidelity, not reasoning, is what fails in
+an agentic fix loop. After that: a mid-size model with enough effective context for whole-file
+edits at the Super tier's price.
+
+**Did you use Tavily in your project?**
+
+No. The project makes no Tavily API call at runtime, so it is not eligible for that prize, and we
+would rather say so than claim a call we do not make.
+
+**Builders & Brews — IRL Events City**
+
+Not applicable. Not attending any of the listed events.
