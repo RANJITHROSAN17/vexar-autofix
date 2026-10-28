@@ -345,8 +345,13 @@ you to batch decisions and lose the per-finding verdict. `--preflight` exists be
 and a wrong endpoint both present as the same confusing failure mid-run, and at hackathon time
 that difference costs hours.
 
-**Other Nebius tools and services: none.** No serverless endpoints, no managed vector store, no
-hosted database. All state is a file in this repository — `docs/data/runs.json` holds the recorded
+**Infrastructure used: none beyond the API.** No GPU instance was provisioned, no model was
+deployed or served, and there is no scaling configuration to tune — Token Factory is reached over
+plain HTTPS as a serverless API, and the tier is chosen by model ID at runtime, so changing capacity
+is a string rather than a deployment.
+
+**Other Nebius tools and services: none.** No Nebius Serverless Endpoints, no managed vector
+store, no hosted database. All state is a file in this repository — `docs/data/runs.json` holds the recorded
 run, committed so it can be inspected rather than taken on trust. If a later version adds a Nebius
 service, this paragraph changes in the same commit.
 
