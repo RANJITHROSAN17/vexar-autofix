@@ -17,9 +17,9 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -52,10 +52,14 @@ jobs:
           vexar-autofix --list-models 2>/dev/null || echo "no key in CI, skipping live model check"
           vexar-autofix --target examples/vulnerable_server.py --provider mock --no-tests | tail -20
 
-      - name: Confirm no secret is committed
+      # Match credential *shapes*, not the string "NEBIUS_API_KEY=". A placeholder like
+      # `NEBIUS_API_KEY=...` in a README is documentation, not a leak, and a check that
+      # cannot tell the difference just trains people to ignore it.
+      - name: Confirm no credential is committed
         run: |
-          if git grep -nEi '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|NEBIUS_API_KEY=[^$])' -- . ; then
+          pattern='(sk-[A-Za-z0-9]{24,}|ghp_[A-Za-z0-9]{24,}|gho_[A-Za-z0-9]{24,}|github_pat_[A-Za-z0-9_]{30,}|NEBIUS_API_KEY=[A-Za-z0-9_-]{24,})'
+          if git grep -nEI "$pattern" -- . ':!.github/workflows/ci.yml' ; then
             echo "::error::a credential appears to be committed"
             exit 1
           fi
-          echo "no credentials found in tracked files"
+          echo "no credential shapes found in tracked files"
