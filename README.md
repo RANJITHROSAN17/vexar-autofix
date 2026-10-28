@@ -376,6 +376,27 @@ the three bundled fixtures, and refuses to be pointed at anything else.
 
 ---
 
+## The demo video
+
+Two minutes, narrated over the recorded run: the vulnerable line, the scanner's own
+output, the three wrong patches, the `FileNotFoundError`, the third stage that catches
+them, and the second run that gets it right.
+
+The visuals are generated from this repository — so they cannot drift from the data,
+and the frame says **not a live run** rather than pretending to be a terminal capture:
+
+```bash
+pip install pillow imageio-ffmpeg
+python video/render.py --beats                                   # the 26-beat sheet
+python video/render.py --audio narration.mp4 --out demo.mp4      # render it
+```
+
+`video/render.py` holds the beats, the captions and the palette. The audio track is
+passed through untouched; only the visuals are produced here. Every panel body is output
+captured from the run recorded in [`docs/data/runs.json`](docs/data/runs.json).
+
+---
+
 ## Repository map
 
 ```
