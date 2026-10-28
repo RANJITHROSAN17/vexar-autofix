@@ -202,6 +202,10 @@ def autofix(
                 elif problems:
                     record.failure = "; ".join(problems)
                 else:
+                    # Captured before `current` is reassigned below. Reading it afterwards
+                    # compares the patch with itself and silently reports nothing.
+                    before_this_patch = current
+
                     # Does the patch implement the remedy, or did it just silence the rule?
                     # Checked before the scanner runs: a patch that clears the rule by
                     # flipping a boolean or deleting the call is worse than no patch.
@@ -231,7 +235,7 @@ def autofix(
                         current = patched
                         findings = after
                         fixed_this = True
-                        result["review"].extend(review_notes(current, patched))
+                        result["review"].extend(review_notes(before_this_patch, patched))
                         result["fixed"].append(
                             {
                                 "rule_id": finding.rule_id,

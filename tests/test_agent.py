@@ -97,3 +97,20 @@ class TestReport:
     def test_report_prices_the_run(self, target: Path) -> None:
         report = autofix(MockClient(), target, max_attempts=1, check_tests=False)
         assert {"calls", "cost_usd"} <= set(report["usage"])
+
+
+def test_review_notes_reach_the_report_when_a_sink_is_deleted(tmp_path: Path) -> None:
+    """The rehearsal patch deletes `os.system(cmd)`, which must surface as a review note.
+
+    This regressed once: the agent reassigned `current` to the patched text before comparing
+    it, so the comparison was always between a patch and itself and the note silently
+    vanished -- a deleted sink line is exactly the kind of thing a human must be told about.
+    """
+    target = tmp_path / "vulnerable_server.py"
+    target.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+
+    report = autofix(MockClient(rehearse_accept=True), target, max_attempts=1, check_tests=False)
+
+    assert report["verified"] is True
+    assert report["review"], "a deleted sink line must be reported to the human"
+    assert "removed" in report["review"][0]
