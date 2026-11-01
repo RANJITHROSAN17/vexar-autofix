@@ -1,0 +1,33 @@
+name: Verifier bypass or false rejection
+description: Share a patch that fooled audit_patch() (or a safe canonical fix that was wrongly rejected)
+labels: ["area/verifier", "type/proof"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Case type
+      options:
+        - "Verifier bypass (bad patch was accepted)"
+        - "False rejection (safe canonical patch was rejected)"
+    validations:
+      required: true
+  - type: input
+    id: rule_id
+    attributes:
+      label: MCP Rule ID
+      placeholder: "e.g. MCP005, MCP006, MCP007, MCP010"
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Minimal before / after Python snippet
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Why the verifier verdict should invert
+    validations:
+      required: true

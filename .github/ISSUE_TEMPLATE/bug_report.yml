@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a defect in the CLI, agent loop, verifier, or CI action
+labels: ["type/bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Exact command & output
+      placeholder: "vexar-autofix --target examples/vulnerable_server.py --provider mock"
+    validations:
+      required: true

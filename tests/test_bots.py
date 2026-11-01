@@ -267,3 +267,16 @@ def test_no_workflow_is_a_placeholder() -> None:
             if steps and echo_only == len(steps):
                 offenders.append(f"{path.name}: job '{name}' only echoes")
     assert not offenders, "\n".join(offenders)
+
+
+def test_issue_labeler_classifies_verifier_and_cli_topics() -> None:
+    labeler = load("auto_label_issue")
+    labels = labeler.classify(
+        "audit_patch bypass on MCP005 subprocess shell",
+        "A crafted patch bypassed verifier SMELLS check",
+    )
+    assert "area/verifier" in labels
+    assert "type/security" in labels
+    cli_labels = labeler.classify("feat: add --sarif output flag to CLI", "Support SARIF export")
+    assert "area/cli" in cli_labels
+    assert "type/feature" in cli_labels

@@ -12,6 +12,8 @@ on:
       - ".github/roadmap.json"
       - ".github/scripts/roadmap_status.py"
       - ".github/workflows/roadmap-status-bot.yml"
+  issues:
+    types: [opened, closed]
   schedule:
     - cron: "30 6 * * 1"
   workflow_dispatch:

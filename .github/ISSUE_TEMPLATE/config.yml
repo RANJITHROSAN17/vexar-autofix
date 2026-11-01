@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "🛡️ Good First Issues (Curated Queue)"
+    url: "https://github.com/RANJITHROSAN17/vexar-autofix/labels/good%20first%20issue"
+    about: "Self-contained tasks backed by acceptance criteria and mock-provider verification."
+  - name: "🔒 Private Security Advisory"
+    url: "https://github.com/RANJITHROSAN17/vexar-autofix/security/advisories/new"
+    about: "Report vulnerabilities privately per SECURITY.md."
+  - name: "🗺️ 90-Day Verified Roadmap"
+    url: "https://github.com/RANJITHROSAN17/vexar-autofix/blob/main/ROADMAP.md"
+    about: "See how every finding, verifier gate, and milestone is sequenced."

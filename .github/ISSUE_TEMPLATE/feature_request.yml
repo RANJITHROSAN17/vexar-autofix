@@ -1,0 +1,16 @@
+name: Feature proposal
+description: Propose a bounded verifier rule, CLI policy flag, or proof-artifact enhancement
+labels: ["type/feature"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem & why this belongs in scope (check ROADMAP.md non-goals first)
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Concrete acceptance criteria & verification tests
+    validations:
+      required: true
