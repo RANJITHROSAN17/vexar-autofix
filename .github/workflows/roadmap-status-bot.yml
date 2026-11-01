@@ -14,6 +14,9 @@ on:
       - ".github/workflows/roadmap-status-bot.yml"
   issues:
     types: [opened, closed]
+  workflow_run:
+    workflows: ["Roadmap Curator Bot"]
+    types: [completed]
   schedule:
     - cron: "30 6 * * 1"
   workflow_dispatch:
