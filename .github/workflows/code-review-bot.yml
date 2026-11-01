@@ -106,7 +106,7 @@ jobs:
             const marker = '<!-- pr-guide-bot -->';
             const gates = read('gates.md', '| Gates | not run |\n|---|---|');
             const audit = read('self_audit.md', '_Self-audit did not run._');
-            const context = read('context.md', '_No roadmap context generated._');
+            const roadmapContext = read('context.md', '_No roadmap context generated._');
             const passed = process.env.OVERALL === '0';
 
             const body = [
@@ -115,7 +115,7 @@ jobs:
               '',
               gates.trim(),
               '',
-              context.trim(),
+              roadmapContext.trim(),
               '',
               '### Published claims',
               '',

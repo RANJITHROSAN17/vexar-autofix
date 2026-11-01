@@ -24,7 +24,7 @@ AUTOFIXABLE = frozenset({"MCP005", "MCP006", "MCP007", "MCP010"})
 
 def scan(target: Path) -> list[Finding]:
     """Run the real scanner and flatten its diagnostics."""
-    from mcp_doctor import ScanConfig, scan_paths
+    from vexar_mcp import ScanConfig, scan_paths
 
     report = scan_paths([target], ScanConfig())
     return [
@@ -42,7 +42,7 @@ def scan(target: Path) -> list[Finding]:
 
 def score_of(target: Path) -> tuple[int, str]:
     """Return the scanner's (score, grade) for a file."""
-    from mcp_doctor import ScanConfig, scan_paths
+    from vexar_mcp import ScanConfig, scan_paths
 
     summary = scan_paths([target], ScanConfig()).summary
     return int(summary.score or 0), str(summary.grade)

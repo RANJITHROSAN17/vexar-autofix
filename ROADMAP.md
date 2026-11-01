@@ -127,6 +127,13 @@ has not read the source can implement a compatible verifier from the document al
 
 ### G8 — Cross-repo blocker: the import name is taken · **P0 dependency, not ours alone**
 
+**Release candidate update:** the parent migration is proposed in
+[RANJITHROSAN17/Vexar-MCP#76](https://github.com/RANJITHROSAN17/Vexar-MCP/pull/76).
+This branch uses canonical `vexar_mcp` imports and a `vexar-mcp==0.3.0` release pin.
+The original findings below describe the pre-migration state. G8 is **not done**
+until the parent is published, this change merges, and both public installations
+are verified. See [RELEASING.md](RELEASING.md).
+
 **Verified.** `mcp-doctor` on PyPI is **not this project** — it belongs to another author
 (`Jiansen/mcp-doctor`, v0.1.0). This repository's *import* package is `mcp_doctor`, while its
 *distribution* name is `Vexar-MCP`. Publishing `Vexar-MCP` would install a top-level

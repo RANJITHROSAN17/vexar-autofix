@@ -59,7 +59,7 @@ class Check:
 
 
 def check_fixtures() -> list[Check]:
-    from mcp_doctor.engine import scan_paths
+    from vexar_mcp.engine import scan_paths
 
     checks: list[Check] = []
     for relative, max_score, min_diagnostics, why in FIXTURE_CLAIMS:

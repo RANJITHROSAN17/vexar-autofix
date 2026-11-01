@@ -121,7 +121,7 @@ python -m pytest -q          # 46 tests, no network, no key
 # Reproduce the deterministic half of the receipt yourself:
 python - <<'PY'
 from pathlib import Path
-from mcp_doctor import ScanConfig, scan_paths
+from vexar_mcp import ScanConfig, scan_paths
 for name in ("vulnerable_server.py", "helper_delegation_server.py", "clean_server.py"):
     report = scan_paths([Path("examples") / name], ScanConfig())
     rules = sorted({d.rule_id for d in report.diagnostics})
@@ -488,5 +488,14 @@ python -m pytest -q && python eval/run_eval.py --provider mock
 
 <div align="center">
 <sub>MIT · built by <a href="https://github.com/RANJITHROSAN17">Ranjith Rosan</a> for the Nebius × NVIDIA Global AI Hackathon</sub><br>
-<sub>Scanner: <a href="https://github.com/RANJITHROSAN17/Vexar-MCP">Vexar-MCP</a>, pinned to commit <code>dd4c07b</code> so a judge's run reproduces today's verification behaviour</sub>
+<sub>Scanner: <a href="https://github.com/RANJITHROSAN17/Vexar-MCP">Vexar-MCP</a>, pinned to release <code>0.3.0</code> so a judge's run reproduces today's verification behaviour</sub>
 </div>
+
+## Coordinated release dependency
+
+This release candidate imports `vexar_mcp` and pins `vexar-mcp==0.3.0` instead of
+installing a Git commit. **Vexar-MCP 0.3.0 must be published first**; until then,
+ordinary installs of this candidate cannot resolve the dependency from PyPI.
+See [RELEASING.md](RELEASING.md) for review, Trusted Publisher setup, release order
+and the clean-wheel coexistence check. Source/wheel verification is not a claim
+that either project has already been published.
