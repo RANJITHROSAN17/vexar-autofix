@@ -7,7 +7,7 @@
 Every AI code agent asks you to trust its diff. This one hands you a receipt.
 
 [![CI](https://github.com/RANJITHROSAN17/vexar-autofix/actions/workflows/ci.yml/badge.svg)](https://github.com/RANJITHROSAN17/vexar-autofix/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-46%20passing-3ddc97)](tests)
+[Test suite](tests)
 [![python](https://img.shields.io/badge/python-3.10%20%E2%80%933.13-3776ab?logo=python&logoColor=white)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-9aa4b2)](LICENSE)
 
@@ -24,6 +24,12 @@ Built with **NVIDIA Nemotron** on **Nebius Token Factory**.</sub>
 ![The demo page replaying a recorded run stage by stage](docs/assets/demo-replay.gif)
 
 ---
+
+## Before you point it at a repository
+
+Use a disposable clone and review the dry-run diff first. A passing scanner and test suite are evidence about those checks, **not proof that a patch is secure or behavior-preserving**. The verifier may execute the target’s tests; never run it on untrusted code outside an appropriate sandbox. Real-model mode sends source context to Nebius and can incur charges. Mock mode is a rehearsal, not an evaluation of model quality.
+
+Success on the first run means seeing a clearly labelled mock report with fixed/refused/skipped outcomes; it does not mean the vulnerable fixture is now safe. Keep `--apply` off until you have reviewed the report.
 
 ## The claim, and how it is enforced
 
@@ -72,7 +78,10 @@ on any machine.
 ```bash
 git clone https://github.com/RANJITHROSAN17/vexar-autofix
 cd vexar-autofix
-pip install -e .      # pulls the scanner from GitHub, pinned to a commit, not a branch
+python -m venv .venv
+# Activate: source .venv/bin/activate (macOS/Linux)
+# Or: .\.venv\Scripts\Activate.ps1 (Windows PowerShell)
+python -m pip install -e .  # installs the published vexar-mcp==0.3.0 verifier
 
 # Rehearsal: no network, no model, no key. Clearly labelled fake output.
 vexar-autofix --target examples/vulnerable_server.py --provider mock --rehearse-accept
@@ -114,7 +123,8 @@ mid-run, and at hackathon time that difference costs hours.
 The whole project argues that claims should be checkable, so the repo is built to be checked:
 
 ```bash
-python -m pytest -q          # 46 tests, no network, no key
+python -m pip install -e ".[dev]"
+python -m pytest -q          # no model API key required
 ```
 
 ```bash
