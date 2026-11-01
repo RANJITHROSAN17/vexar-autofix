@@ -509,3 +509,7 @@ ordinary installs of this candidate cannot resolve the dependency from PyPI.
 See [RELEASING.md](RELEASING.md) for review, Trusted Publisher setup, release order
 and the clean-wheel coexistence check. Source/wheel verification is not a claim
 that either project has already been published.
+
+## Maintainer
+
+**[Ranjith Rosan](https://github.com/RANJITHROSAN17)** maintains vexar-autofix, the MCP patch-proposal and verification project. Dependencies, model providers and community contributors retain their respective credits.
