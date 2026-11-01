@@ -95,7 +95,7 @@ jobs:
 
       - name: Post or update the sticky comment
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           OVERALL: ${{ steps.gates.outputs.overall }}
         with:
