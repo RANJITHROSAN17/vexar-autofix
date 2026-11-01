@@ -18,10 +18,10 @@ classifiers = [
 ]
 
 # The scanner is the verifier, so it is a hard dependency rather than a nice-to-have.
-# Pinned to a commit SHA, not a branch: a judging run next month must reproduce the same
-# verification behaviour as the demo today.
+# Pinned to a published scanner version: installs must not depend on Git or a branch.
+# Release prerequisite: Vexar-MCP 0.3.0 must be published before this package.
 dependencies = [
-  "Vexar-MCP @ git+https://github.com/RANJITHROSAN17/Vexar-MCP@dd4c07b2119966122cd7e1695ff74964f20bc22c",
+  "vexar-mcp==0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -48,7 +48,7 @@ strict = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = "mcp_doctor.*"
+module = "vexar_mcp.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
