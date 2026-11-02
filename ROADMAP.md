@@ -152,6 +152,43 @@ half-published name is worse than an unpublished one.
 
 ---
 
+## Added 2026-11-03 — the gate-3 repair cycle (N1, N2, N3, X7)
+
+Added after an independent review that ran the checks in this repository rather than reading
+them; the full analysis is in [`docs/ROADMAP-PROPOSED.md`](docs/ROADMAP-PROPOSED.md). It
+supersedes nothing above. It goes ahead of G2 because of one finding that changes the order
+of everything else.
+
+**Gate 3 does not run.** The table near the top of the README sells three gates. The third is
+*"It still works — the target's own pytest suite must pass after the patch."* `agent.py` copies
+only the target **file** into the temp workspace, so `run_tests()` finds no `test_*.py` and
+returns `None`; `cli.py` then renders that `None` as `unchanged / passing`. A target whose own
+tests fail still comes out `verified=True`. No test exercises `check_tests=True` — all twelve
+tests in `tests/test_agent.py` disable it — so nothing caught this.
+
+A proof product with one gate that is decorative is worth less than a smaller product with
+none, because the discovery that one gate never ran discounts the two that did. So this cycle
+repairs the claim before it adds to it.
+
+| ID | Item | Done when |
+|---|---|---|
+| **N1** | Run the test suite against the materialised target root, and report `null` as "not run" | A target with a failing suite is not verified, and the word "passing" never appears for a gate that did not execute |
+| **N2** | Gate matrix: the first test that runs `check_tests=True`, one rejection case per gate | Deleting the `run_tests` call makes the suite go red |
+| **N3** | Reconcile the published numbers (merges **G7** and **G9**) | Every number on the demo page traces to `capture_demo.py`, and no token field contradicts `cost_usd` |
+| **X7** | Bound the test gate's execution: no network, read-only outside the workspace | Tracked before N1 lands, because making the gate work turns on code execution against other people's repositories |
+
+**Sequencing:** N1 and X7 are one decision, not two — repairing the gate is what makes the
+execution boundary matter. N3 is independent and can run in parallel. N2 should land with or
+immediately after N1. **G9 is absorbed into N3.** **G7 keeps only its remaining half** — the
+`VERIFICATION.md` that lists the command behind every published number — because its telemetry
+criterion is N3's job.
+
+**Non-goals for this cycle:** more fixable rules, the proof artifact (G3), policy flags (G4),
+the Action (G5), and any desktop/assistant surface. See E and F of the proposal for why each
+is deferred rather than rejected.
+
+---
+
 ## The 90 days
 
 ### Days 1–30 — close the holes and make the output machine-readable

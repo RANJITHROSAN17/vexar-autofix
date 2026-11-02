@@ -1,6 +1,6 @@
 {
-  "_comment": "The machine-readable face of ROADMAP.md. Every item here is verified in that document as NOT built (G1 is the exception: it shipped, and is kept so the bot closes its issue instead of reopening it). Change a status here and the curator bot opens or closes the matching issue; nothing else in this repo opens roadmap issues by hand.",
-  "max_open_roadmap_issues": 4,
+  "_comment": "The machine-readable face of ROADMAP.md. Every item here is verified in that document as NOT built (G1 is the exception: it shipped, and is kept so the bot closes its issue instead of reopening it). Change a status here and the curator bot opens or closes the matching issue; nothing else in this repo opens roadmap issues by hand. N1-N3/X7 were added 2026-11-03 from docs/ROADMAP-PROPOSED.md: they repair the claim the product is sold on before any new surface is added. The cap was raised from 4 to 8 so this four-item cycle can be claimed in parallel; lower it again once they land.",
+  "max_open_roadmap_issues": 8,
   "min_open_good_first_issues": 1,
   "verification": [
     "python -m pip install -e \".[dev]\"",
@@ -170,6 +170,115 @@
       ]
     },
     {
+      "id": "N1",
+      "title": "fix(agent): run the target's test suite against the target root — gate 3 never runs today",
+      "summary": "`agent.py` copies only the target FILE into the temp workspace, so `run_tests()` finds no `test_*.py` and returns `None`. `cli.py` then renders that `None` as 'unchanged / passing'. A target whose own tests fail still comes out `verified=True`.",
+      "motivation": "Gate 3 is one of the three checks the README sells: 'It still works - the target's own pytest suite must pass after the patch.' It cannot run: the workspace holds one file and no suite. A verification product whose gate silently does nothing is worth less than one that admits it has two gates. Reproduced offline: a target with a deliberately failing test suite produced `tests_ok=None` and `verified=True`, while `run_tests()` on the real project directory returned `False`.",
+      "files": [
+        "src/vexar_autofix/agent.py",
+        "src/vexar_autofix/verifier.py",
+        "src/vexar_autofix/cli.py",
+        "tests/test_agent.py"
+      ],
+      "acceptance_criteria": [
+        "The workspace is materialised from the target's ROOT (excluding .git, venvs, __pycache__, node_modules), so the patched module is what the tests import",
+        "`run_tests` is called with the root, not `workspace.parent`",
+        "`tests_ok` is True / False / null plus a `tests_detail` string; both are exposed in `--json`",
+        "A null result is rendered as 'tests not run', never as 'passing', in human output",
+        "A target whose tests fail after the patch is not verified and `--apply` does not write",
+        "A `--tests-root PATH` override and a wall-clock cap exist so a monorepo cannot stall a dry run",
+        "The existing 76 tests still pass and `--no-tests` still skips the gate, visibly recorded"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/security",
+        "priority/p0",
+        "difficulty/medium",
+        "area/agent"
+      ]
+    },
+    {
+      "id": "N2",
+      "title": "test(agent): pin all three gates with a gate matrix — the first test that runs check_tests=True",
+      "summary": "All 12 tests in `tests/test_agent.py` pass `check_tests=False`, and grepping `tests/` for `tests_ok`, `run_tests` or `--no-tests` returns nothing. Gate 3 has zero coverage, which is why the defect in N1 survived review.",
+      "motivation": "`ROADMAP.md` says every invariant 'is already pinned by a test'. Gate 3 is not. Without a matrix that exercises each gate independently, a refactor can delete a check and leave the suite green - the exact failure this repository is built to argue against.",
+      "files": [
+        "tests/",
+        "tests/test_agent.py",
+        "src/vexar_autofix/agent.py"
+      ],
+      "acceptance_criteria": [
+        "`tests/fixtures/project_with_failing_tests/` - a module plus a `test_*.py` that fails after the canonical patch; `project_with_passing_tests/` and `project_with_no_tests/` alongside it",
+        "`tests/test_gates.py` rejects a patch for each gate in turn: a patch that clears gates 1 and 2 but fails exactly one gate must not verify",
+        "A documentation invariant fails if the gate table in README.md disagrees with a `GATES` constant in the code",
+        "Mutation check recorded in the PR: commenting out the `run_tests` call makes `pytest` go red",
+        "The suite grows beyond 76 tests and needs no API key or network"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/security",
+        "priority/p0",
+        "difficulty/easy",
+        "area/agent"
+      ]
+    },
+    {
+      "id": "N3",
+      "title": "fix(proof): reconcile the published numbers — runs.json reports zero tokens with a non-zero cost",
+      "summary": "`docs/data/runs.json` reports `input_tokens: 0, output_tokens: 0` alongside `cost_usd: 0.0226` - a shape `clients.py:_record` cannot produce. Related drift: `README.md` quotes 46 tests where the suite collects 76.",
+      "motivation": "This is the file behind the live demo page, and the product's claim is that every number on it is checkable. The cheapest number on the page contradicts itself, so a sceptic discounts the expensive ones. G7 and G9 describe this same defect from two angles and should merge into this item.",
+      "files": [
+        "docs/data/runs.json",
+        "scripts/capture_demo.py",
+        "docs/index.html",
+        "README.md"
+      ],
+      "acceptance_criteria": [
+        "The 2026-10-28 run is either re-captured with a key, or marked `\"telemetry\": \"pre-token-capture\"` with unsubstantiated token fields no longer rendered",
+        "A test asserts `input_tokens + output_tokens > 0 => cost_usd > 0`, that mock runs carry explicit nulls, and that the key set matches what `docs/index.html` reads",
+        "A test asserts the test count quoted in README.md equals `pytest --collect-only -q`",
+        "`roadmap.json` merges G7 and G9 into this item rather than tracking one defect twice",
+        "`docs/data/scan.json` is left alone - it already reproduces byte-for-byte"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "good first issue",
+        "difficulty/easy",
+        "type/proof",
+        "area/cli"
+      ]
+    },
+    {
+      "id": "X7",
+      "title": "feat(agent): bound the test-gate execution - no network, read-only outside the workspace",
+      "summary": "`verifier.py:run_tests` executes the target's test suite with the caller's privileges, network and working directory. Today that risk is latent only because the gate is broken (N1); making the gate work makes it live.",
+      "motivation": "N1 turns on code execution against other people's repositories. The README already warns that the verifier may run the target's tests and that it should not be pointed at untrusted code outside a sandbox - a warning is not a boundary. This must be tracked before N1 lands so the repair does not quietly widen the blast radius.",
+      "files": [
+        "src/vexar_autofix/verifier.py",
+        "src/vexar_autofix/agent.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "The test gate runs in a subprocess with no network by default and an explicit `--allow-network` opt-in",
+        "The target root is bound read-only; only the throwaway workspace copy is writable",
+        "A wall-clock cap is enforced and reported as a failed gate, not a pass",
+        "`--help` and the report header state the execution boundary in one line",
+        "A fixture whose test writes to `../` or opens a socket reports the gate as blocked rather than passing",
+        "Platforms without the primitive get a documented, visible fallback - not a silent downgrade"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/security",
+        "priority/p0",
+        "difficulty/hard",
+        "area/verifier"
+      ]
+    },
+    {
       "id": "G2",
       "title": "feat(agent): give every refusal a stable reason code",
       "summary": "The `refused` bucket carries prose in `why` and nothing a CI job can route on.",
@@ -292,8 +401,8 @@
     },
     {
       "id": "G7",
-      "title": "docs(proof): VERIFICATION.md - how to reproduce every published number",
-      "summary": "The README and demo page quote scores, finding counts and costs. The recipe to reproduce them is scattered across commits.",
+      "title": "docs(proof): VERIFICATION.md - the command that reproduces every published number",
+      "summary": "The README and demo page quote scores, finding counts and costs. The recipe to reproduce them is scattered across commits. (The telemetry half of the original G7 moved to N3, which fixes the numbers themselves.)",
       "motivation": "Every figure this project publishes is supposed to carry a timestamp and a commit. That only holds if a stranger can rerun the command and get the same number. Without this page, the honesty claim is a style of writing rather than a property of the repo.",
       "files": [
         "VERIFICATION.md",
@@ -303,7 +412,7 @@
         "Every published number is listed with the exact command that produces it",
         "Each entry names the commit and date it was captured at",
         "Anything that cannot be reproduced offline says so explicitly",
-        "The token and cost fields in docs/data/runs.json are populated from the provider response, not assembled by hand"
+        "A stranger can re-derive the scanner half from a fresh clone without an API key"
       ],
       "labels": [
         "roadmap",
@@ -334,31 +443,6 @@
         "priority/p0",
         "difficulty/hard",
         "area/release"
-      ]
-    },
-    {
-      "id": "G9",
-      "title": "fix(demo): capture real provider token usage in scripts/capture_demo.py and docs/data/runs.json",
-      "summary": "ROADMAP.md Days 1-30 Week 4 flags two honesty gaps in the demo artifacts: `docs/data/runs.json` token counts and `scripts/capture_demo.py` output schema alignment.",
-      "motivation": "A verification product cannot publish hand-assembled demo telemetry; every number on the demo page should come straight from `capture_demo.py` and match the schema `docs/index.html` reads.",
-      "files": [
-        "scripts/capture_demo.py",
-        "docs/data/runs.json",
-        "src/vexar_autofix/clients.py",
-        "tests/test_cli.py"
-      ],
-      "acceptance_criteria": [
-        "`clients.py` records prompt_tokens, completion_tokens, and total_tokens from provider responses (and explicit `null` for mock runs)",
-        "`scripts/capture_demo.py` emits the exact JSON shape consumed by `docs/index.html`",
-        "A test asserts `docs/data/runs.json` parses against the expected keys with no fabricated zero-cost claims on live runs"
-      ],
-      "labels": [
-        "roadmap",
-        "help wanted",
-        "good first issue",
-        "difficulty/easy",
-        "area/cli",
-        "type/proof"
       ]
     },
     {
