@@ -1,6 +1,6 @@
 {
-  "_comment": "The machine-readable face of ROADMAP.md. Every item here is verified in that document as NOT built (G1 is the exception: it shipped, and is kept so the bot closes its issue instead of reopening it). Change a status here and the curator bot opens or closes the matching issue; nothing else in this repo opens roadmap issues by hand. N1-N3/X7 were added 2026-11-03 from docs/ROADMAP-PROPOSED.md: they repair the claim the product is sold on before any new surface is added. The cap was raised from 4 to 8 so this four-item cycle can be claimed in parallel; lower it again once they land.",
-  "max_open_roadmap_issues": 8,
+  "_comment": "The machine-readable face of ROADMAP.md. Every item here is verified in that document as NOT built (G1 is the exception: it shipped, and is kept so the bot closes its issue instead of reopening it). Change a status here and the curator bot opens or closes the matching issue; nothing else in this repo opens roadmap issues by hand. N1-N3/X7 were added 2026-11-03 from docs/ROADMAP-PROPOSED.md: they repair the claim the product is sold on before any new surface is added. The cap was raised from 4 to 8 so this four-item cycle can be claimed in parallel; lower it again once they land. V1 and A1/E2-E9 were added the same day as a verified backlog: each records the command or reproduction that justified it, and three candidate items were dropped because probing disproved them (exit codes, the pip Dependabot config, demo accessibility).",
+  "max_open_roadmap_issues": 10,
   "min_open_good_first_issues": 1,
   "verification": [
     "python -m pip install -e \".[dev]\"",
@@ -144,6 +144,16 @@
       "name": "stale",
       "color": "ededed",
       "description": "No activity for 60 days (nudged, never auto-closed)"
+    },
+    {
+      "name": "priority/p1",
+      "color": "d93f0b",
+      "description": "Next after the release-blocking work"
+    },
+    {
+      "name": "priority/p2",
+      "color": "fbca04",
+      "description": "Worth doing; not urgent"
     }
   ],
   "items": [
@@ -276,6 +286,249 @@
         "priority/p0",
         "difficulty/hard",
         "area/verifier"
+      ]
+    },
+    {
+      "id": "V1",
+      "title": "fix(verifier): audit_patch fails open when the patched line already exists elsewhere in the file",
+      "summary": "`audit_patch()` builds its `added` set as lines of `after` that are not in `set(before.splitlines())` (`verifier.py:253-254`) and returns `[]` as soon as that set is empty (`:255`). If the patch's replacement line already appears somewhere else in the file, the patch is never audited at all.",
+      "motivation": "Reproduced: flipping `subprocess.run(cmd, shell=True)` to `subprocess.run(cmd, shell=False, check=False)` - the exact anti-pattern `SMELLS['MCP005']` exists to reject - returned `[]` (accepted, no checks run) because an identical line already existed in the file. The module docstring says 'Rejection is fail-closed on purpose'; this path is fail-open. Duplicated boilerplate is the common case in real servers, so the audit is blind precisely where the code is repetitive. SECURITY.md lists verifier bypasses as a first-class report class, which makes this the most serious finding in the repository.",
+      "files": [
+        "src/vexar_autofix/verifier.py",
+        "tests/test_verifier.py"
+      ],
+      "acceptance_criteria": [
+        "A diff-based added-line computation (difflib opcodes on before/after, not set membership) so a rewritten line is always visible to the audit",
+        "A regression case proves the MCP005 anti-pattern is rejected even when an identical line exists elsewhere in the file",
+        "A matching good patch (canonical remedy, duplicate line present) is still accepted - no false rejection",
+        "A test asserts `audit_patch` never returns `[]` for a rule in AUTOFIXABLE when the targeted line actually changed"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/security",
+        "priority/p0",
+        "difficulty/medium",
+        "area/verifier"
+      ]
+    },
+    {
+      "id": "A1",
+      "title": "fix(cli): make --apply refuse to overwrite without a backup or a version-control check",
+      "summary": "`--apply` writes the patch with a bare `target.write_text(...)` (`cli.py:86`). Outside a git repository there is no backup, no confirmation and no warning - the only warning that exists fires for paths whose parent directory happens to be named `examples`.",
+      "motivation": "Reproduced: `--apply` on a copy of a fixture in `/tmp/nogit/` overwrote the file, exited 0, printed 'applied to ...' and created no backup. For a tool whose selling point is that it never writes without verification, the write path itself should say whether the previous contents are recoverable. The README instructs users to use a disposable clone, but nothing checks that they did.",
+      "files": [
+        "src/vexar_autofix/cli.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "`--apply` warns visibly and requires an explicit acknowledgement flag when the target is not inside a git work tree",
+        "A `.bak` copy (or the original bytes in the report) is written before the target is modified",
+        "The report states where the previous contents can be recovered from",
+        "A test asserts the target is byte-identical after an interrupted or refused apply"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/security",
+        "priority/p1",
+        "difficulty/easy",
+        "area/cli"
+      ]
+    },
+    {
+      "id": "E4",
+      "title": "fix(cli): report unknown model pricing instead of silently claiming the run cost $0.00",
+      "summary": "`clients.py:61` prices a run with `MODEL_PRICES.get(model, (0.0, 0.0))`. Any model ID supplied through `AUTOFIX_MODEL_*` that is not in that table is priced at zero, so the run reports `~$0.0000`.",
+      "motivation": "Reproduced: with `AUTOFIX_MODEL_PATCH=nvidia/some-new-model`, a million prompt and a million completion tokens cost `0.0`. The README and the demo page publish cost, and the whole positioning is that the numbers are checkable. A silent zero is worse than 'unknown' because it looks like a measurement. Token Factory's lineup changes - `--preflight` exists precisely because of that - so an unpriced model is the expected case, not an exotic one.",
+      "files": [
+        "src/vexar_autofix/clients.py",
+        "src/vexar_autofix/cli.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "An unpriced model yields `cost_usd: null` plus a `cost_note` naming the model, never `0.0`",
+        "The human report prints 'cost unknown (no price for <model>)' rather than a currency figure",
+        "A test covers a model ID absent from MODEL_PRICES",
+        "`--json` consumers can distinguish 'free' from 'not priced'"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/proof",
+        "priority/p1",
+        "difficulty/easy",
+        "area/cli"
+      ]
+    },
+    {
+      "id": "E2",
+      "title": "fix(cli): --json emits two different schemas - a clean run has no usage, triage or bucket keys",
+      "summary": "A clean target returns `{before, clean, target}`; a target with findings returns fourteen keys including `usage`, `triage`, `fixed`, `refused`, `skipped`, `attempts`. Same flag, two documents.",
+      "motivation": "Measured directly: `--json` on `examples/clean_server.py` emits three keys, on `examples/vulnerable_server.py` fourteen. Every consumer - the Action in G5, the proof artifact in G3, any CI parser - has to special-case the clean path. The early return is `agent.py:139-144`.",
+      "files": [
+        "src/vexar_autofix/agent.py",
+        "src/vexar_autofix/cli.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "Every `--json` document carries the same key set, with empty lists/zeroed usage for a clean run",
+        "A schema test asserts the key set is identical across all three fixtures",
+        "A `schema_version` field exists so the next change to this shape is not a silent break"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/bug",
+        "priority/p1",
+        "difficulty/easy",
+        "area/cli"
+      ]
+    },
+    {
+      "id": "E3",
+      "title": "fix(cli): a non-UTF-8 target crashes with a traceback instead of a clean error",
+      "summary": "`agent.py` reads the target with `read_text(encoding=\"utf-8\")`. A file containing Latin-1 bytes raises `UnicodeDecodeError` from the middle of the scanner stack, and the user sees a codec traceback.",
+      "motivation": "Reproduced with a Latin-1 source file: `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff`. Python source files predating PEP 263 defaults, vendored code with other encodings, and mixed-encoding repositories are common enough that the tool should say 'this file is not UTF-8, here is the byte offset' rather than dumping an internal stack trace.",
+      "files": [
+        "src/vexar_autofix/agent.py",
+        "src/vexar_autofix/cli.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "A non-decodable target produces one actionable error line naming the file and byte offset, with no traceback",
+        "Detection honours a PEP 263 coding cookie when present",
+        "A test covers a Latin-1 fixture and asserts no traceback in stderr"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/bug",
+        "priority/p2",
+        "difficulty/easy",
+        "good first issue",
+        "area/cli"
+      ]
+    },
+    {
+      "id": "E5",
+      "title": "perf(agent): stop re-scanning the file twice per run - score_of() discards the diagnostics it just computed",
+      "summary": "`score_of()` (`verifier.py:43-48`) runs a complete `scan_paths()` and keeps only the score, while `scan()` runs the same scan again for the diagnostics.",
+      "motivation": "Measured on the vulnerable fixture: one run with one accepted patch made 4 full scanner invocations (2 scan, 2 score_of) for 12 findings. The scanner is the deterministic cost floor of every run and the only part of the pipeline whose speed we control - model latency is the provider's. Consolidating to one scan returning both diagnostics and summary is the cheapest real speedup available, and it is a precondition for any incremental or cached scan later.",
+      "files": [
+        "src/vexar_autofix/verifier.py",
+        "src/vexar_autofix/agent.py"
+      ],
+      "acceptance_criteria": [
+        "One scan per file state returns both diagnostics and score; `score_of` is removed or delegates to it",
+        "A counter-based test asserts the number of scanner invocations for a one-patch run does not exceed 2",
+        "The published scores and grades are unchanged for all three fixtures"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/feature",
+        "priority/p2",
+        "difficulty/medium",
+        "area/agent"
+      ]
+    },
+    {
+      "id": "E6",
+      "title": "docs: the curator's shipped comment points at a CHANGELOG.md that does not exist",
+      "summary": "`sync_roadmap_issues.py:226` closes a shipped item with 'see the CHANGELOG entry for {version}'. There is no CHANGELOG.md anywhere in the repository.",
+      "motivation": "Every issue this project closes as delivered ends with a dead instruction, in text posted by automation. For a project whose argument is that its claims are checkable, an automated comment pointing at a file that does not exist is a small but self-inflicted contradiction. It is also a prerequisite for the first tagged release (G8b): a release needs release notes.",
+      "files": [
+        "CHANGELOG.md",
+        ".github/scripts/sync_roadmap_issues.py",
+        "tests/test_bots.py"
+      ],
+      "acceptance_criteria": [
+        "A `CHANGELOG.md` exists in Keep-a-Changelog form with an Unreleased section",
+        "The shipped comment either links a real section or stops mentioning the CHANGELOG",
+        "A test asserts any document path named in bot-generated text exists in the tree"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/docs",
+        "priority/p2",
+        "difficulty/easy",
+        "good first issue",
+        "area/docs"
+      ]
+    },
+    {
+      "id": "E7",
+      "title": "chore(package): ship py.typed, add --version, and declare project URLs",
+      "summary": "The package is typed under `mypy --strict` but ships no `py.typed`, has no `--version` flag (`vexar-autofix --version` is an argparse error), and `pyproject.toml` has no `[project.urls]`.",
+      "motivation": "A downstream user importing `vexar_autofix` gets no type information despite the strict typing this repo enforces on itself, because `py.typed` is absent. `--version` is the first command anyone types against an installed CLI, and today it fails. `[project.urls]` is what puts Homepage and Issues links on the PyPI page that G8b will create. All three are one file and one flag; together they are the difference between 'installable' and 'published'.",
+      "files": [
+        "pyproject.toml",
+        "src/vexar_autofix/__init__.py",
+        "src/vexar_autofix/cli.py"
+      ],
+      "acceptance_criteria": [
+        "`py.typed` ships inside the wheel and `import vexar_autofix` is typed for a downstream mypy run",
+        "`vexar-autofix --version` and `vexar_autofix.__version__` agree with `pyproject.toml`",
+        "`[project.urls]` declares Homepage, Issues and Changelog",
+        "A test asserts the three version sources agree (the release workflow already checks two of them)"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/feature",
+        "priority/p2",
+        "difficulty/easy",
+        "good first issue",
+        "area/release"
+      ]
+    },
+    {
+      "id": "E8",
+      "title": "ci: the package claims to be OS Independent but CI only ever runs on Ubuntu",
+      "summary": "`pyproject.toml` classifies `Operating System :: OS Independent` and the quickstart gives Windows PowerShell activation steps, but `.github/workflows/ci.yml:14` runs only `ubuntu-latest`.",
+      "motivation": "The repository's own standard is that a claim should be checkable. Two platform claims are untested: the classifier, and the Windows instructions in the README that a new user will follow first. Nothing in the suite is obviously Linux-specific, which is exactly why a cheap matrix would settle it - and if something is path- or shell-sensitive, better to learn it in CI than in the first Windows bug report.",
+      "files": [
+        ".github/workflows/ci.yml",
+        "pyproject.toml"
+      ],
+      "acceptance_criteria": [
+        "The test job runs on `windows-latest` as well as `ubuntu-latest` (at least on one Python version)",
+        "The mock eval and the CLI smoke test run on both",
+        "If any test is genuinely platform-specific it is marked and the classifier is corrected rather than the test deleted"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/docs",
+        "priority/p2",
+        "difficulty/easy",
+        "area/ci"
+      ]
+    },
+    {
+      "id": "E9",
+      "title": "fix(demo): throttle the hosted demo endpoint - it spends provider money per request",
+      "summary": "`demo/app.py` restricts input to the three bundled fixtures (good) but has no rate limit, no concurrency cap and no per-request budget, so a public endpoint with an API key behind it can be looped.",
+      "motivation": "The Dockerfile commit reasoned that restricting fixtures 'keeps each run at a known handful of cheap model calls while making abuse pointless'. Known size is not the same as bounded spend: a loop still costs money and blocks the single worker, and the demo is the first thing a judge or a visitor touches. The fix is a token bucket plus a concurrency gate, which is a few lines.",
+      "files": [
+        "demo/app.py",
+        "demo/Dockerfile"
+      ],
+      "acceptance_criteria": [
+        "A per-IP rate limit and a global concurrency cap exist, both configurable by environment variable",
+        "Exceeding either returns a clear 429 with a Retry-After header, not a hang or a 500",
+        "A test drives the endpoint past the limit and asserts the provider client is not called again",
+        "The README states the demo's cost envelope"
+      ],
+      "labels": [
+        "roadmap",
+        "help wanted",
+        "type/security",
+        "priority/p2",
+        "difficulty/medium",
+        "area/ci"
       ]
     },
     {

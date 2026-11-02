@@ -187,6 +187,33 @@ criterion is N3's job.
 the Action (G5), and any desktop/assistant surface. See E and F of the proposal for why each
 is deferred rather than rejected.
 
+### Verified backlog (V1, A1, E2–E9)
+
+Ten further items, each one admitted only because a command reproduced it. Three candidate
+items were **dropped** in the same session because probing disproved them: the CLI's exit codes
+are already correct (`1` when nothing verified, `0` when clean), Dependabot already covers the
+`pip` ecosystem, and the demo page has no images, so it has no missing-`alt` problem. Recording
+the discards matters as much as the admits — an item that cannot be reproduced is a guess wearing
+a filename.
+
+| ID | Item | Evidence it is real |
+|---|---|---|
+| **V1** | `audit_patch` fails open when the patched line already exists in the file | Flipping `shell=True` to the broken `shell=False` form returned `[]` — accepted with **no audit at all** — because an identical line existed elsewhere. The `MCP005` anti-pattern the audit exists to reject |
+| **A1** | `--apply` overwrites with no backup and no version-control check | `--apply` on a file outside any git repo: wrote, exited 0, no `.bak`, no warning |
+| **E4** | Unknown model IDs are priced at `$0.00` | `AUTOFIX_MODEL_PATCH=<new id>` → 1M+1M tokens cost `0.0`, so the published cost silently reads zero |
+| **E2** | `--json` emits two different schemas | clean run: 3 keys; run with findings: 14 keys |
+| **E3** | Non-UTF-8 target raises a codec traceback | Latin-1 fixture → `UnicodeDecodeError` from inside the scanner stack |
+| **E5** | `score_of()` re-scans and discards the diagnostics | Measured 4 full scanner invocations for a one-patch run |
+| **E6** | The curator's closure comment cites a `CHANGELOG.md` that does not exist | `sync_roadmap_issues.py:226` |
+| **E7** | No `py.typed`, no `--version`, no `[project.urls]` | Strictly typed internally, ships no types; `--version` is an argparse error |
+| **E8** | `Operating System :: OS Independent` but CI is Ubuntu-only | `ci.yml` matrix varies Python, not OS |
+| **E9** | The hosted demo has no throttle | Input is fixture-restricted, but spend per request is unbounded under a loop |
+
+**Queue policy.** `max_open_roadmap_issues` is 10. With four issues already open the curator files
+six on the next push and the rest follow as issues close — a queue that refills itself rather than
+a burst of twenty. If the open queue ever looks larger than the work being finished, lower the
+number rather than closing issues to make room.
+
 ---
 
 ## The 90 days
