@@ -43,7 +43,7 @@ jobs:
           .release-smoke/bin/python scripts/check_release_install.py
           .release-smoke/bin/vexar-mcp --version
           .release-smoke/bin/vexar-autofix --help
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: distributions
           path: dist/*
@@ -58,7 +58,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: distributions
           path: dist/
